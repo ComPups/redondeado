@@ -1,5 +1,5 @@
 project_id = "redondeado"
 
 [auth]
-site_url = "http://localhost:5174"
+site_url = "http://localhost:5173"
 enable_signup = false
