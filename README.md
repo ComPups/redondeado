@@ -32,7 +32,7 @@ The hosted demo will use the same migrations in a separate Supabase project. Ver
 
 ## Run locally
 
-Each application has its own dependencies and lockfile. In three terminals, run:
+Each application has its own dependencies and lockfile. In two terminals, run:
 
 ```sh
 cd api
@@ -48,14 +48,9 @@ cp .env.example .env
 npm run dev
 ```
 
-```sh
-cd backoffice
-npm ci
-cp .env.example .env
-npm run dev
-```
+Open the public site at http://localhost:5173/centro-bienestar-arrayan and the staff sign-in at http://localhost:5173/staff/login. A signed-out visit to `/staff` redirects to sign-in. Both sections use the same API at http://localhost:3000/health. The frontend port is fixed; stop any process using it before starting the app. The API permits requests from this local origin. Restart local Supabase after changing its Auth configuration.
 
-Open the public site at http://localhost:5173 and the backoffice at http://localhost:5174. Both display the result of a request to the API health endpoint at http://localhost:3000/health. The Vite ports are fixed; stop any process already using them before starting the apps. The API allows browser requests from these two local origins.
+The routes are integration scaffolds: [COM-9](https://linear.app/compups/issue/COM-9) will implement sign-in and sessions; [COM-10](https://linear.app/compups/issue/COM-10) will implement public booking; [COM-11](https://linear.app/compups/issue/COM-11) and [COM-12](https://linear.app/compups/issue/COM-12) will add staff settings and appointments; [COM-16](https://linear.app/compups/issue/COM-16) and [COM-17](https://linear.app/compups/issue/COM-17) cover authorization and isolation tests. Until COM-9, all staff routes except login redirect to login. The `staff` slug is reserved for staff routes. Production hosting must rewrite frontend paths to `index.html` for direct navigation and refresh.
 
 To build for production, run `npm run build` in each directory. The built API can be started with `npm start` in `api/`. The API reads its optional `.env` file at startup. Vite reads its `.env` files automatically; only variables prefixed `VITE_` are exposed to browser code, so never put secrets in them.
 
