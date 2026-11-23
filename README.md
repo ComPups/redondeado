@@ -58,3 +58,17 @@ npm run dev
 Open the public site at http://localhost:5173 and the backoffice at http://localhost:5174. Both display the result of a request to the API health endpoint at http://localhost:3000/health. The Vite ports are fixed; stop any process already using them before starting the apps. The API allows browser requests from these two local origins.
 
 To build for production, run `npm run build` in each directory. The built API can be started with `npm start` in `api/`. The API reads its optional `.env` file at startup. Vite reads its `.env` files automatically; only variables prefixed `VITE_` are exposed to browser code, so never put secrets in them.
+
+## Demo staff identities
+
+A local `supabase db reset` applies the migrations and seeds the fictional Centro Bienestar Arrayán. **Reset deletes local database data.** The three fictional accounts share the local demo password `Demo-Arrayan-2026!`:
+
+| Staff member | Email | Center role |
+| --- | --- | --- |
+| Camila Rojas | camila.rojas@example.com | Administrator (also a professional) |
+| Matías Soto | matias.soto@example.com | Member |
+| Valentina Muñoz | valentina.munoz@example.com | Limited |
+
+These credentials are public and only for local development; do not use this seed for a production project. The authenticated user's rows in `center_memberships` provide the center ID and role for server-side authorization. A user can belong to multiple centers, so the server must select a center from those rows and check its role for each request. Staff professional IDs and display names are public; profile Auth user IDs, account email, and membership administration are not public. Signed-in staff can read their own Auth user ID in their memberships. Public queries on `staff_profiles` must select `professional_id` and `display_name` explicitly. Memberships continue to use the Auth user ID for authorization. Sign-in UI and role enforcement for appointments are subsequent work.
+
+Run `supabase test db` after the local database is migrated and seeded. The authorization test creates its own fictional two-center fixtures inside a rolled-back transaction.
