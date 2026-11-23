@@ -1,5 +1,9 @@
 import { StrictMode, useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import Alert from 'react-bootstrap/Alert';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import './style.css';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -56,16 +60,16 @@ function Centers() {
   return <div className="shell">
     <aside className="sidebar"><a className="brand" href="/staff/centers"><span className="brand-mark">✳</span> redondeado</a><p className="sidebar-label">ESPACIO DE TRABAJO</p><nav aria-label="Navegación principal"><a className="nav-active" href="/staff/centers"><span aria-hidden="true">▦</span> Centros</a></nav><div className="sidebar-note"><strong>Tu espacio de trabajo</strong><p>Gestiona la información de tus centros desde un solo lugar.</p></div></aside>
     <main className="workspace"><header className="topbar"><span>Backoffice <span className="separator">/</span> Centros</span><span className="badge">Gestión local</span></header>
-      <div className="content"><div className="page-heading"><div><p className="eyebrow">TU ORGANIZACIÓN</p><h1>Centros</h1><p className="lead">Todos tus espacios de atención, en un solo lugar.</p></div><a className="button button-primary" href="#nuevo-centro">+ Nuevo centro</a></div>
-      {error && <div className="notice error" role="alert">{error}</div>}{success && <div className="notice success" role="status">{success}</div>}
+      <div className="content"><div className="page-heading"><div><p className="eyebrow">TU ORGANIZACIÓN</p><h1>Centros</h1><p className="lead">Todos tus espacios de atención, en un solo lugar.</p></div><Button className="button-primary" href="#nuevo-centro">+ Nuevo centro</Button></div>
+      {error && <Alert className="notice" variant="danger" role="alert">{error}</Alert>}{success && <Alert className="notice" variant="success" role="status">{success}</Alert>}
       <div className="grid"><section aria-labelledby="centers-heading"><div className="section-heading"><div><h2 id="centers-heading">Centros existentes</h2><p>Revisa los centros registrados.</p></div><span className="count">{centers.length}</span></div>
         {loading ? <div className="empty">Cargando centros…</div> : centers.length === 0 ? <div className="empty"><strong>Aún no hay centros</strong><p>Crea el primero para comenzar.</p></div> : <div className="center-list">{centers.map(center => <article className="center-card" key={center.id}><div className="center-icon" aria-hidden="true">✳</div><div className="center-info"><h3>{center.name}</h3><p>{center.description || 'Sin descripción'}</p><div className="meta"><span>◷ &nbsp;{center.opens_at.slice(0, 5)} – {center.closes_at.slice(0, 5)}</span><span>/{center.slug}</span></div></div><span className="card-tag">Centro</span></article>)}</div>}
-      </section><section className="form-card" id="nuevo-centro" aria-labelledby="form-heading"><p className="eyebrow">NUEVO ESPACIO</p><h2 id="form-heading">Crear un centro</h2><p>Agrega la información básica para comenzar.</p><form onSubmit={createCenter}>
-        <label htmlFor="name">Nombre del centro</label><input id="name" required maxLength={120} placeholder="Ej. Centro Bienestar Arrayán" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-        <label htmlFor="description">Descripción <span>Opcional</span></label><textarea id="description" maxLength={400} rows={4} placeholder="Cuéntanos un poco sobre este centro" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /><div className="hint">{form.description.length}/400 caracteres</div>
-        <div className="time-grid"><div><label htmlFor="opens">Apertura</label><input id="opens" type="time" required value={form.opens_at} onChange={e => setForm({ ...form, opens_at: e.target.value })} /></div><div><label htmlFor="closes">Cierre</label><input id="closes" type="time" required value={form.closes_at} onChange={e => setForm({ ...form, closes_at: e.target.value })} /></div></div><p className="form-help">El horario se aplica todos los días.</p>
-        <button className="button button-primary submit" disabled={submitting}>{submitting ? 'Creando…' : 'Crear centro'}</button>
-      </form></section></div></div></main></div>;
+      </section><section className="form-card" id="nuevo-centro" aria-labelledby="form-heading"><p className="eyebrow">NUEVO ESPACIO</p><h2 id="form-heading">Crear un centro</h2><p>Agrega la información básica para comenzar.</p><Form onSubmit={createCenter}>
+        <Form.Label htmlFor="name">Nombre del centro</Form.Label><Form.Control id="name" required maxLength={120} placeholder="Ej. Centro Bienestar Arrayán" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+        <Form.Label htmlFor="description">Descripción <span>Opcional</span></Form.Label><Form.Control as="textarea" id="description" maxLength={400} rows={4} placeholder="Cuéntanos un poco sobre este centro" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /><div className="hint">{form.description.length}/400 caracteres</div>
+        <div className="time-grid"><div><Form.Label htmlFor="opens">Apertura</Form.Label><Form.Control id="opens" type="time" required value={form.opens_at} onChange={e => setForm({ ...form, opens_at: e.target.value })} /></div><div><Form.Label htmlFor="closes">Cierre</Form.Label><Form.Control id="closes" type="time" required value={form.closes_at} onChange={e => setForm({ ...form, closes_at: e.target.value })} /></div></div><p className="form-help">El horario se aplica todos los días.</p>
+        <Button type="submit" className="button-primary submit" disabled={submitting}>{submitting ? 'Creando…' : 'Crear centro'}</Button>
+      </Form></section></div></div></main></div>;
 }
 
 function App() {
