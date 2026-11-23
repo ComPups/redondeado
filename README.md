@@ -1,2 +1,60 @@
-# redondeado
-Part of the Encuadrado applying process.
+# Redondeado
+
+A booking site and staff backoffice for the Encuadrado application process. This repository currently contains the initial application scaffold; booking, authentication, and database features are still to be implemented.
+
+## Prerequisites
+
+- Node.js 22.13 or later and npm.
+- Registry access for installing dependencies.
+- For the local database: Docker Desktop running and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started). On macOS with Homebrew, install the CLI with `brew install supabase/tap/supabase`.
+
+## Start local Supabase
+
+Open Docker Desktop and wait for the engine to start. If `docker` returns `command not found` on macOS and Docker Desktop installed its CLI in `~/.docker/bin`, add it to the current terminal's `PATH`:
+
+```sh
+export PATH="$HOME/.docker/bin:$PATH"
+```
+
+From the repository root, run:
+
+```sh
+docker info --format '{{.ServerVersion}}'
+supabase --version
+npm ping
+supabase start
+supabase status
+```
+
+The first start downloads the service images. The CLI prints the local API and Auth URL (`http://127.0.0.1:54321`), the Postgres connection on port `54322`, and [Studio](http://127.0.0.1:54323). Use `supabase stop` when you are done. This setup runs independently of the application scaffold while the database schema and demo accounts are being built.
+
+The hosted demo will use the same migrations in a separate Supabase project. Verify migrations locally before using the [hosted migration workflow](https://supabase.com/docs/guides/deployment/database-migrations). Keep project credentials in local environment files and use fictional patient and staff data for the demo.
+
+## Run locally
+
+Each application has its own dependencies and lockfile. In three terminals, run:
+
+```sh
+cd api
+npm ci
+cp .env.example .env
+npm run dev
+```
+
+```sh
+cd web
+npm ci
+cp .env.example .env
+npm run dev
+```
+
+```sh
+cd backoffice
+npm ci
+cp .env.example .env
+npm run dev
+```
+
+Open the public site at http://localhost:5173 and the backoffice at http://localhost:5174. Both display the result of a request to the API health endpoint at http://localhost:3000/health. The Vite ports are fixed; stop any process already using them before starting the apps. The API allows browser requests from these two local origins.
+
+To build for production, run `npm run build` in each directory. The built API can be started with `npm start` in `api/`. The API reads its optional `.env` file at startup. Vite reads its `.env` files automatically; only variables prefixed `VITE_` are exposed to browser code, so never put secrets in them.
