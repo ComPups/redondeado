@@ -81,6 +81,27 @@ router.get('/centers/:centerId/booking-options', async (req, res) => {
   res.json({ professionals: availableProfessionals, services: services.data });
 });
 
+router.get('/centers/:centerId/availability', async (req, res) => {
+  if (res.locals.role === 'limited') { res.status(403).json({ error: 'Acceso de solo lectura.' }); return; }
+  const { service_id, professional_id } = req.query;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (typeof service_id !== 'string' || !uuid.test(service_id) || typeof professional_id !== 'string' || !uuid.test(professional_id)) {
+    res.status(400).json({ error: 'Selecciona un servicio y profesional válidos.' }); return;
+  }
+  const { db } = res.locals.staff;
+  const { data: center, error: centerError } = await db.from('centers').select('slug').eq('id', req.params.centerId).maybeSingle();
+  if (centerError || !center) { res.status(500).json({ error: 'No se pudo cargar el centro.' }); return; }
+  const slots: { starts_at: string }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db.rpc('public_availability', { p_slug: center.slug, p_service: service_id, p_professional: professional_id }).range(from, from + 999);
+    if (error) { res.status(500).json({ error: 'No se pudieron cargar los horarios disponibles.' }); return; }
+    const page = (data ?? []) as { starts_at: string }[];
+    slots.push(...page);
+    if (page.length < 1000) break;
+  }
+  res.json(slots);
+});
+
 router.post('/centers/:centerId/appointments', async (req, res) => {
   if (res.locals.role === 'limited') { res.status(403).json({ error: 'Acceso de solo lectura.' }); return; }
   const { service_id, starts_at, patient_name, patient_email, patient_phone, scope } = req.body ?? {};

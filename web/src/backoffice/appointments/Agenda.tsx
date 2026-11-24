@@ -21,7 +21,7 @@ function santiagoInstant(value: string): Date | null {
   return localInput(result.toISOString()) === value ? result : null;
 }
 
-export function Agenda({ appointments, role, token, centerId, slug, apiUrl, refresh, loading, error, scope = 'personal' }: { appointments: Appointment[]; role: string; token: string; centerId: string; slug: string; apiUrl: string; refresh: () => void; loading: boolean; error: string; scope?: 'personal' | 'center' }) {
+export function Agenda({ appointments, role, token, centerId, apiUrl, refresh, loading, error, scope = 'personal' }: { appointments: Appointment[]; role: string; token: string; centerId: string; apiUrl: string; refresh: () => void; loading: boolean; error: string; scope?: 'personal' | 'center' }) {
   const [creating, setCreating] = useState(false);
   const [past, setPast] = useState(false);
   const [selected, setSelected] = useState<Appointment | null>(null);
@@ -52,7 +52,7 @@ export function Agenda({ appointments, role, token, centerId, slug, apiUrl, refr
   return <section className="staff-section" id="agendamientos"><div className="section-heading"><div><p className="eyebrow">{scope === 'center' ? 'AGENDA DEL CENTRO' : 'TU AGENDA'}</p><h2>{scope === 'center' ? 'Agendamientos del centro' : 'Agendamientos'}</h2><p>{scope === 'center' ? 'Revisa los agendamientos de tu centro.' : 'Revisa los agendamientos asignados a ti.'}</p></div><div className="agenda-actions"><span className="count">{visible.length}</span>{role !== 'limited' && <Button className="button-primary" onClick={() => setCreating(true)}>+ Agendar cita</Button>}</div></div>
     <div className="agenda-filters" aria-label="Filtrar citas"><button type="button" aria-pressed={!past} onClick={() => setPast(false)}>Próximas</button><button type="button" aria-pressed={past} onClick={() => setPast(true)}>Pasadas</button></div>
     {loading ? <p role="status">Cargando agendamientos…</p> : error ? <p role="alert">{error} <button onClick={refresh}>Reintentar</button></p> : visible.length ? <ul className="agenda-list">{visible.map(a => <li key={a.id}><button type="button" onClick={() => { setSelected(a); setMessage(''); }}><strong>{format(a.starts_at)}</strong> · {a.service_name} · {a.patient_name}{a.professional_name && <> · {a.professional_name}</>}</button></li>)}</ul> : <p>{past ? 'No hay citas pasadas.' : 'No hay citas próximas.'}</p>}
-    <NewAppointment scope={scope} show={creating} onClose={() => setCreating(false)} onCreated={refresh} centerId={centerId} slug={slug} token={token} apiUrl={apiUrl} />
+    <NewAppointment scope={scope} show={creating} onClose={() => setCreating(false)} onCreated={refresh} centerId={centerId} token={token} apiUrl={apiUrl} />
     <Modal show={!!selected} onHide={close} enforceFocus={!confirmDelete} centered><Modal.Header closeButton><Modal.Title>Detalle de la cita</Modal.Title></Modal.Header>{selected && <><Modal.Body>
       {message && <p role="alert">{message}</p>}
       {editing ? <form id="appointment-form" onSubmit={save} className="appointment-form">

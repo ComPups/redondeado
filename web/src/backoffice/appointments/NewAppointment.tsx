@@ -4,7 +4,7 @@ import { BookingCalendar, type Slot } from '../../shared/components/BookingCalen
 import { fetchAvailability } from '../../shared/api';
 
 type Options = { professionals: { id: string; name: string }[]; services: { id: string; name: string; duration_minutes: number }[] };
-export function NewAppointment({ show, onClose, onCreated, centerId, slug, token, apiUrl, scope }: { show: boolean; onClose: () => void; onCreated: () => void; centerId: string; slug: string; token: string; apiUrl: string; scope: 'personal' | 'center' }) {
+export function NewAppointment({ show, onClose, onCreated, centerId, token, apiUrl, scope }: { show: boolean; onClose: () => void; onCreated: () => void; centerId: string; token: string; apiUrl: string; scope: 'personal' | 'center' }) {
   const [options, setOptions] = useState<Options | null>(null);
   const [service, setService] = useState('');
   const [professional, setProfessional] = useState('');
@@ -27,11 +27,11 @@ export function NewAppointment({ show, onClose, onCreated, centerId, slug, token
     setSlots([]); setSlot('');
     if (!show || !service || !professional) return;
     const controller = new AbortController(); setLoading(true); setError('');
-    fetchAvailability(slug, service, professional, controller.signal)
+    fetchAvailability(centerId, service, professional, token, controller.signal)
       .then(data => { setSlots(data); setLoading(false); })
       .catch(() => { if (!controller.signal.aborted) { setLoading(false); setError('No se pudieron cargar los horarios disponibles.'); } });
     return () => controller.abort();
-  }, [show, service, professional, slug]);
+  }, [show, service, professional, centerId, token]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setError('');
     try {
