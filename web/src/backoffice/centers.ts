@@ -9,12 +9,12 @@ async function readResponse(response: Response): Promise<unknown> {
   return data;
 }
 
-export async function listCenters(signal: AbortSignal): Promise<Center[]> {
-  return await readResponse(await fetch(`${apiUrl}/api/centers`, { signal })) as Center[];
+export async function listCenters(token: string, signal: AbortSignal): Promise<Center[]> {
+  return await readResponse(await fetch(`${apiUrl}/staff/platform/centers`, { signal, headers: { Authorization: `Bearer ${token}` } })) as Center[];
 }
 
-export async function createCenter(input: CenterInput): Promise<Center> {
-  return await readResponse(await fetch(`${apiUrl}/api/centers`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+export async function createCenter(token: string, input: CenterInput): Promise<Center> {
+  return await readResponse(await fetch(`${apiUrl}/staff/platform/centers`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(input),
   })) as Center;
 }

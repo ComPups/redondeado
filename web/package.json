@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.119.2",
     "bootstrap": "5.3.9",
     "react": "19.3.0",
     "react-bootstrap": "2.10.10",

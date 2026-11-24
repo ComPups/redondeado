@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
-import { Link, NavLink } from 'react-router';
+import { NavLink } from 'react-router';
+import { Brand } from '../../shared/components/Brand';
 
 export function BackofficeLayout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <Link className="brand" to="/staff/centers"><span className="brand-mark">✳</span> redondeado</Link>
+        <Brand to="/staff/centers" />
         <p className="sidebar-label">ESPACIO DE TRABAJO</p>
         <nav aria-label="Navegación principal">
           <NavLink className="nav-active" to="/staff/centers"><span aria-hidden="true">▦</span> Centros</NavLink>
