@@ -5,6 +5,4 @@ import { App } from './App';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './style.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>,
-);
+createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>);

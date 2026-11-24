@@ -10,14 +10,17 @@ select '00000000-0000-0000-0000-000000000000', id, 'authenticated', 'authenticat
 from (values
   ('20000000-0000-4000-8000-000000000001'::uuid, 'camila.rojas@example.com'),
   ('20000000-0000-4000-8000-000000000002'::uuid, 'matias.soto@example.com'),
-  ('20000000-0000-4000-8000-000000000003'::uuid, 'valentina.munoz@example.com')
+  ('20000000-0000-4000-8000-000000000003'::uuid, 'valentina.munoz@example.com'),
+  ('20000000-0000-4000-8000-000000000004'::uuid, 'plataforma@example.com')
 ) as staff(id, email);
 
 insert into auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
 select gen_random_uuid(), id, jsonb_build_object('sub', id::text, 'email', email), 'email', id::text, now(), now(), now()
 from auth.users where id in (
-  '20000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000003'
+  '20000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000004'
 );
+
+insert into public.platform_administrators (user_id) values ('20000000-0000-4000-8000-000000000004');
 
 insert into public.staff_profiles (user_id, professional_id, display_name) values
   ('20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', 'Camila Rojas'),

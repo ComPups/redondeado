@@ -1,0 +1,51 @@
+import { strict as assert } from 'node:assert';
+import { createClient } from '@supabase/supabase-js';
+const url = process.env.SUPABASE_URL;
+const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+const api = process.env.TEST_API_URL || 'http://localhost:3000';
+if (!url || !key) throw new Error('Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY');
+async function request(path, token) {
+  return fetch(`${api}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+}
+assert.equal((await request('/staff/centers')).status, 401);
+assert.equal((await request('/staff/centers', 'invalid')).status, 401);
+for (const [email, role, count] of [['camila.rojas@example.com', 'administrator', 3], ['matias.soto@example.com', 'member', 1], ['valentina.munoz@example.com', 'limited', 1]]) {
+  const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await client.auth.signInWithPassword({ email, password: 'Demo-Arrayan-2026!' });
+  assert.ifError(error);
+  const token = data.session.access_token;
+  const centers = await (await request('/staff/centers', token)).json();
+  assert.equal(centers[0].role, role);
+  const path = `/staff/centers/${centers[0].center_id}`;
+  assert.equal((await (await request(path, token)).json()).role, role);
+  const rows = await (await request(`${path}/appointments`, token)).json();
+  assert.equal(rows.length, count);
+  const direct = await client.from('appointments').select('id');
+  assert.ifError(direct.error);
+  assert.equal(direct.data.length, count);
+  assert.equal((await request('/staff/centers/00000000-0000-4000-8000-000000000099', token)).status, 403);
+  await client.auth.signOut();
+}
+console.log('Staff authentication and authorization passed');
+const platform = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+const signedIn = await platform.auth.signInWithPassword({ email: 'plataforma@example.com', password: 'Demo-Arrayan-2026!' });
+assert.ifError(signedIn.error);
+const platformToken = signedIn.data.session.access_token;
+assert.equal((await (await request('/staff/me', platformToken)).json()).platformAdmin, true);
+const platformCenters = await (await request('/staff/centers', platformToken)).json();
+assert.ok(platformCenters.length >= 1);
+assert.ok(platformCenters.every(center => center.role === 'platform_administrator'));
+const platformAppointments = await (await request(`/staff/centers/${platformCenters.find(c => c.center_id === '10000000-0000-4000-8000-000000000001').center_id}/appointments`, platformToken)).json();
+assert.equal(platformAppointments.length, 3);
+const services = await (await request('/staff/platform/services', platformToken)).json();
+const service = services[0];
+const update = await fetch(`${api}/staff/platform/services/${service.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${platformToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: service.name }) });
+assert.equal(update.status, 200);
+const member = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+const memberLogin = await member.auth.signInWithPassword({ email: 'matias.soto@example.com', password: 'Demo-Arrayan-2026!' });
+assert.ifError(memberLogin.error);
+assert.equal((await request('/staff/platform/services', memberLogin.data.session.access_token)).status, 403);
+assert.equal((await fetch(`${api}/staff/platform/centers`, { method: 'POST', headers: { Authorization: `Bearer ${memberLogin.data.session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Denied', slug: 'denied' }) })).status, 403);
+await platform.auth.signOut();
+await member.auth.signOut();
+console.log('Platform administrator API checks passed');
