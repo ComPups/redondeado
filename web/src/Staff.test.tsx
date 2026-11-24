@@ -22,7 +22,8 @@ const originalCenters = [
   { center_id: 'b', role: 'member', centers: { id: 'b', name: 'Center B', slug: 'center-b', description: '', opens_at: '09:00', closes_at: '18:00' } },
 ];
 let centers = originalCenters;
-const appointment = (id: string) => [{ id, patient_name: `Patient ${id}`, service_name: 'Consultation', starts_at: '2099-11-24T13:00:00Z' }];
+const appointment = (id: string) => [{ id, professional_user_id: auth.session?.user.id ?? auth.role, patient_name: `Patient ${id}`, service_name: 'Consultation', patient_email: 'patient@example.com', patient_phone: '+56912345678', starts_at: '2099-11-24T13:00:00Z', ends_at: '2099-11-24T14:00:00Z' }];
+const agenda = (items: ReturnType<typeof appointment>, has_more = false) => ({ appointments: items, has_more });
 const response = (data: unknown, ok = true) => ({ ok, status: ok ? 200 : 500, json: async () => data }) as Response;
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -39,8 +40,9 @@ function mockApi() {
     if (path === '/staff/platform/centers') return response([]);
     if (path === '/staff/centers/a') return response({ role: auth.role }, !failRole);
     if (path === '/staff/centers/b') return response({ role: auth.role });
-    if (path === '/staff/centers/a/appointments') return pendingAgenda ? pendingAgenda.promise : response(appointment('A'));
-    if (path === '/staff/centers/b/appointments') return response(appointment('B'));
+    if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60 }] });
+    if (path === '/staff/centers/a/appointments') return pendingAgenda ? pendingAgenda.promise : response(agenda(appointment('A')));
+    if (path === '/staff/centers/b/appointments') return response(agenda(appointment('B')));
     throw new Error(`Unexpected request ${path}`);
   }));
 }
@@ -74,6 +76,74 @@ describe('staff workspace through the screen', () => {
       expect((screen.getByLabelText('Centro') as HTMLSelectElement).value).toBe('a');
     });
   }
+  it('separates an administrator’s appointments from the center agenda', async () => {
+    auth.role = 'administrator';
+    mockApi();
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (new URL(String(input)).pathname === '/staff/centers/a/appointments') {
+        return response(agenda(new URL(String(input)).searchParams.get('scope') === 'center' ? [...appointment('Own'), { ...appointment('Other')[0], professional_user_id: 'another-professional' }] : appointment('Own')));
+      }
+      return originalFetch(input, init);
+    });
+    await signIn('administrator');
+    expect(await screen.findByText(/Patient Own/)).toBeTruthy();
+    expect(screen.queryByText(/Patient Other/)).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
+    expect(screen.getByRole('heading', { name: 'Agendamientos del centro' })).toBeTruthy();
+    expect(await screen.findByText(/Patient Own/)).toBeTruthy();
+    expect(await screen.findByText(/Patient Other/)).toBeTruthy();
+  });
+  it('loads 50-item pages and resets the page when changing filters', async () => {
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/staff/centers/a/appointments') {
+        const page = url.searchParams.get('page');
+        const period = url.searchParams.get('period');
+        return response(agenda(appointment(`${period}-${page}`), period === 'upcoming' && page === '1'));
+      }
+      return originalFetch(input, init);
+    });
+    await signIn('member');
+    expect(await screen.findByText(/Patient upcoming-1/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(await screen.findByText(/Patient upcoming-2/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Pasadas' }));
+    expect(await screen.findByText(/Patient past-1/)).toBeTruthy();
+  });
+  it('does not show the center agenda to members', async () => {
+    await signIn('member');
+    fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
+    expect(screen.queryByRole('heading', { name: 'Agendamientos del centro' })).toBeNull();
+  });
+  it('opens manual booking with the center options', async () => {
+    await signIn('member');
+    fireEvent.click(screen.getByRole('button', { name: '+ Agendar cita' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(await screen.findByRole('option', { name: 'Consulta · 60 min' })).toBeTruthy();
+    expect(screen.queryByLabelText('Profesional')).toBeNull();
+  });
+  it('lets administrators select a professional when booking from the center page', async () => {
+    await signIn('administrator');
+    fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ Agendar cita' }));
+    expect(await screen.findByRole('option', { name: 'Camila' })).toBeTruthy();
+    expect(screen.getByLabelText('Profesional')).toBeTruthy();
+  });
+  it('opens a separate confirmation before deleting', async () => {
+    await signIn('administrator');
+    fireEvent.click(await screen.findByRole('button', { name: /Patient A/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    expect(await screen.findByText('¿Eliminar esta cita? Esta acción no se puede deshacer.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.getByText('Detalle de la cita')).toBeTruthy();
+    expect(vi.mocked(fetch).mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false);
+  });
+  it('does not offer manual booking to limited users', async () => {
+    await signIn('limited');
+    expect(screen.queryByRole('button', { name: '+ Agendar cita' })).toBeNull();
+  });
   it('keeps the selected center on refresh and discards an old agenda after a switch', async () => {
     pendingAgenda = deferred<Response>();
     await signIn('member');
@@ -83,7 +153,7 @@ describe('staff workspace through the screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Actualizar centros' }));
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/staff/centers')).length).toBe(requestsBeforeRefresh + 1));
     await waitFor(() => expect((screen.getByLabelText('Centro') as HTMLSelectElement).value).toBe('b'));
-    await act(async () => pendingAgenda!.resolve(response(appointment('A'))));
+    await act(async () => pendingAgenda!.resolve(response(agenda(appointment('A')))));
     expect(screen.queryByText(/Patient A/)).toBeNull();
     expect(screen.getByText(/Patient B/)).toBeTruthy();
   });
@@ -99,7 +169,7 @@ describe('staff workspace through the screen', () => {
     await screen.findByText('Revisa los agendamientos asignados a ti.');
     expect(screen.queryByText(/Patient A/)).toBeNull();
     expect(screen.getByRole('status').textContent).toContain('Cargando agendamientos');
-    await act(async () => pendingAgenda!.resolve(response(appointment('Member'))));
+    await act(async () => pendingAgenda!.resolve(response(agenda(appointment('Member')))));
     expect(await screen.findByText(/Patient Member/)).toBeTruthy();
   });
   it('clears the agenda on sign out and ignores the outstanding response', async () => {
@@ -107,7 +177,7 @@ describe('staff workspace through the screen', () => {
     await signIn('member');
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
     await screen.findByRole('button', { name: 'Ingresar' });
-    await act(async () => pendingAgenda!.resolve(response(appointment('A'))));
+    await act(async () => pendingAgenda!.resolve(response(agenda(appointment('A')))));
     expect(screen.queryByText(/Patient A/)).toBeNull();
   });
   it('signs out locally even when server revocation fails', async () => {
