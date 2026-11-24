@@ -9,6 +9,8 @@ async function request(path, token) {
 }
 assert.equal((await request('/staff/centers')).status, 401);
 assert.equal((await request('/staff/centers', 'invalid')).status, 401);
+assert.equal((await request('/staff/platform/centers')).status, 401);
+assert.equal((await request('/staff/platform-memberships')).status, 401);
 for (const [email, role, count] of [['camila.rojas@example.com', 'administrator', 3], ['matias.soto@example.com', 'member', 1], ['valentina.munoz@example.com', 'limited', 1]]) {
   const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await client.auth.signInWithPassword({ email, password: 'Demo-Arrayan-2026!' });
@@ -45,6 +47,8 @@ const member = createClient(url, key, { auth: { persistSession: false, autoRefre
 const memberLogin = await member.auth.signInWithPassword({ email: 'matias.soto@example.com', password: 'Demo-Arrayan-2026!' });
 assert.ifError(memberLogin.error);
 assert.equal((await request('/staff/platform/services', memberLogin.data.session.access_token)).status, 403);
+assert.equal((await request('/staff/platform-memberships', memberLogin.data.session.access_token)).status, 403);
+assert.equal((await request('/staff/platform-memberships', platformToken)).status, 200);
 assert.equal((await fetch(`${api}/staff/platform/centers`, { method: 'POST', headers: { Authorization: `Bearer ${memberLogin.data.session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Denied', slug: 'denied' }) })).status, 403);
 await platform.auth.signOut();
 await member.auth.signOut();
