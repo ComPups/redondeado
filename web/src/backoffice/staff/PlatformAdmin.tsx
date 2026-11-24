@@ -4,11 +4,25 @@ import { staffFetch } from './staffWorkspace';
 
 export function PlatformAdmin({ token, onCreated }: { token: string; onCreated: () => void }) {
   const [entity, setEntity] = useState('centers');
+  const [fields, setFields] = useState<Record<string, string[]>>();
+  const [fieldsError, setFieldsError] = useState(false);
   const [records, setRecords] = useState<Record<string, unknown>[]>([]);
   const [editing, setEditing] = useState('');
   const [message, setMessage] = useState('');
   const [revision, setRevision] = useState(0);
   const path = entity === 'memberships' ? '/staff/platform-memberships' : `/staff/platform/${entity}`;
+  useEffect(() => {
+    const controller = new AbortController();
+    staffFetch('/staff/platform/editable-fields', token, controller.signal).then(fields => {
+      if (controller.signal.aborted) return;
+      setFields(fields);
+      setFieldsError(false);
+    }).catch(() => {
+      if (!controller.signal.aborted) setFieldsError(true);
+    });
+    return () => controller.abort();
+  }, [token]);
+
   useEffect(() => {
     let active = true;
     staffFetch(path, token).then(rows => { if (active) setRecords(rows); }).catch(() => { if (active) setMessage('Could not load records.'); });
@@ -24,7 +38,10 @@ export function PlatformAdmin({ token, onCreated }: { token: string; onCreated: 
       setMessage('Record updated.'); setEditing(''); setRevision(v => v + 1); if (entity === 'centers') onCreated();
     } catch { setMessage('Could not save. Check the editable fields and values.'); }
   }
-  const fields: Record<string, string[]> = { centers: ['name', 'slug', 'description', 'opens_at', 'closes_at'], services: ['name', 'price_clp', 'duration_minutes', 'active'], appointments: ['professional_user_id', 'service_id', 'service_name', 'patient_name', 'patient_email', 'patient_phone', 'starts_at', 'ends_at'], staff_profiles: ['display_name'], memberships: ['role'] };
+  if (fieldsError || !fields) return <section><h2>Platform administration</h2>
+    {fieldsError ? <p role="alert">Could not load editable fields.</p> : <p role="status">Loading editable fields…</p>}
+  </section>;
+
   return <section><h2>Platform administration</h2>
     <h3>Edit records</h3><label>Entity <select value={entity} onChange={e => { setEntity(e.target.value); setEditing(''); setRecords([]); }}>{Object.keys(fields).map(k => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}</select></label>
     {message && <p role="status">{message}</p>}

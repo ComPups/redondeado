@@ -18,27 +18,38 @@ router.post('/platform/centers', async (req, res) => {
   res.status(201).json(data);
 });
 
-const editable: Record<string, { key: string; columns: string[]; fields: string }> = {
-  centers: { key: 'id', columns: ['name', 'slug', 'description', 'opens_at', 'closes_at'], fields: 'id, name, slug, description, opens_at, closes_at' },
-  services: { key: 'id', columns: ['name', 'price_clp', 'duration_minutes', 'active'], fields: 'id, center_id, name, price_clp, duration_minutes, active' },
-  appointments: { key: 'id', columns: ['professional_user_id', 'service_id', 'service_name', 'patient_name', 'patient_email', 'patient_phone', 'starts_at', 'ends_at'], fields: 'id, center_id, professional_user_id, service_id, service_name, patient_name, patient_email, patient_phone, starts_at, ends_at' },
-  staff_profiles: { key: 'professional_id', columns: ['display_name'], fields: 'professional_id, display_name' },
-};
+type EditableEntity = { key: string; columns: string[]; readOnlyColumns?: string[] };
+const editable = new Map<string, EditableEntity>([
+  ['centers', { key: 'id', columns: ['name', 'slug', 'description', 'image_url', 'opens_at', 'closes_at'] }],
+  ['services', { key: 'id', readOnlyColumns: ['center_id'], columns: ['name', 'description', 'price_clp', 'duration_minutes', 'active'] }],
+  ['appointments', { key: 'id', readOnlyColumns: ['center_id'], columns: ['professional_user_id', 'service_id', 'service_name', 'patient_name', 'patient_email', 'patient_phone', 'starts_at', 'ends_at'] }],
+  ['staff_profiles', { key: 'professional_id', columns: ['display_name', 'description'] }],
+]);
+
+function selectFields({ key, columns, readOnlyColumns = [] }: EditableEntity) {
+  return [key, ...readOnlyColumns, ...columns].join(', ');
+}
+
+router.get('/platform/editable-fields', (_req, res) => {
+  const fields = Object.fromEntries(Array.from(editable, ([entity, config]) => [entity, config.columns]));
+  res.json({ ...fields, memberships: ['role'] });
+});
+
 router.get('/platform/:entity', async (req, res) => {
-  const config = editable[req.params.entity];
+  const config = editable.get(req.params.entity);
   if (!config) { res.status(404).json({ error: 'Unknown entity' }); return; }
-  const { data, error } = await res.locals.staff.db.from(req.params.entity).select(config.fields);
+  const { data, error } = await res.locals.staff.db.from(req.params.entity).select(selectFields(config));
   if (error) { res.status(500).json({ error: 'Could not load records' }); return; }
   res.json(data);
 });
 router.patch('/platform/:entity/:id', async (req, res) => {
-  const config = editable[req.params.entity];
+  const config = editable.get(req.params.entity);
   if (!config) { res.status(404).json({ error: 'Unknown entity' }); return; }
   const changes = req.body;
   if (!changes || typeof changes !== 'object' || Array.isArray(changes) || !Object.keys(changes).length || Object.keys(changes).some(k => !config.columns.includes(k))) {
     res.status(400).json({ error: 'Invalid fields' }); return;
   }
-  const { data, error } = await res.locals.staff.db.from(req.params.entity).update(changes).eq(config.key, req.params.id).select(config.fields).maybeSingle();
+  const { data, error } = await res.locals.staff.db.from(req.params.entity).update(changes).eq(config.key, req.params.id).select(selectFields(config)).maybeSingle();
   if (error) { res.status(400).json({ error: 'Could not update record' }); return; }
   if (!data) { res.status(404).json({ error: 'Record not found' }); return; }
   res.json(data);

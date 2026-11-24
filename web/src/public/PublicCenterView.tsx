@@ -1,70 +1,158 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import Tab from 'react-bootstrap/Tab';
+import Tabs from 'react-bootstrap/Tabs';
 import { Link, useParams } from 'react-router';
-import { BookingCalendar, type Slot } from '../shared/components/BookingCalendar';
+import centerInterior from './assets/center-interior.jpg';
+import { BookingModal, type BookingChoice } from './BookingModal';
 import { PublicHeader } from './PublicComponents';
-import { publicClient as db, useCenterProfile } from './centerProfile';
+import { formatPrice, useCenterProfile, type CenterProfile } from './centerProfile';
 
-export function PublicNotFound() { return <div className="public-site" lang="es-CL"><PublicHeader /><main className="public-container public-message"><h1>Página no disponible</h1><p>Revisa el enlace o vuelve al inicio de Redondeado.</p><Link className="public-button public-button-outline" to="/">Volver al inicio</Link></main></div>; }
+export function PublicNotFound() {
+  return (
+    <div className="public-site" lang="es-CL">
+      <PublicHeader />
+      <main className="public-container public-message">
+        <h1>Página no disponible</h1>
+        <p>Revisa el enlace o vuelve al inicio de Redondeado.</p>
+        <Link className="public-button public-button-outline" to="/">Volver al inicio</Link>
+      </main>
+    </div>
+  );
+}
 
-const dateFormat = new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', dateStyle: 'full' });
-const timeFormat = new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit' });
+function searchable(text: string) {
+  return text.toLocaleLowerCase('es-CL').normalize('NFD').replace(/\p{M}/gu, '');
+}
+
+function CenterPage({ center, slug }: { center: CenterProfile; slug: string }) {
+  const [mode, setMode] = useState<BookingChoice['kind']>('service');
+  const [query, setQuery] = useState('');
+  const [choice, setChoice] = useState<BookingChoice | null>(null);
+  const search = searchable(query.trim());
+  const services = center.services.filter(service =>
+    searchable([service.name, service.description].join(' ')).includes(search));
+  const professionals = center.professionals.filter(professional =>
+    searchable([professional.name, professional.description].join(' ')).includes(search));
+
+  function searchField(kind: BookingChoice['kind'], label: string, placeholder: string) {
+    return (
+      <label className="center-search">
+        <span>{label}</span>
+        <input type="search" value={mode === kind ? query : ''} placeholder={placeholder}
+          onChange={event => setQuery(event.target.value)} />
+      </label>
+    );
+  }
+
+  return (
+    <main>
+      <section className="public-container center-hero">
+        <div className="center-hero-copy">
+          <h1>{center.name}</h1>
+          {center.description && <p>{center.description}</p>}
+          {center.opens_at && center.closes_at && (
+            <p className="center-hours">Horario de atención · {center.opens_at.slice(0, 5)} a {center.closes_at.slice(0, 5)}</p>
+          )}
+          <a className="public-button" href="#agenda">Agendar una hora <span aria-hidden="true">↓</span></a>
+        </div>
+        <img className="center-hero-image" src={center.image_url || centerInterior}
+          alt={center.image_url ? center.name : ''}
+          onError={event => {
+            const image = event.currentTarget;
+            if (image.getAttribute('src') !== centerInterior) {
+              image.alt = '';
+              image.src = centerInterior;
+            }
+          }} />
+      </section>
+
+      <section className="center-scheduling" id="agenda" tabIndex={-1} aria-labelledby="scheduling-heading">
+        <div className="public-container">
+          <h2 id="scheduling-heading">Agenda tu atención</h2>
+          <Tabs id="booking-browse" variant="pills" className="center-tabs" aria-label="Método de búsqueda" activeKey={mode} transition={false}
+            onSelect={key => {
+              if ((key === 'service' || key === 'professional') && key !== mode) {
+                setMode(key);
+                setQuery('');
+              }
+            }}>
+            <Tab eventKey="service" title="Por servicio">
+              {searchField('service', 'Buscar servicios', 'Nombre o descripción')}
+              {services.length ? (
+                <div className="center-card-grid">
+                  {services.map(service => {
+                    const bookable = center.professionals.length > 0;
+                    return (
+                      <article className="center-booking-card" key={service.id}>
+                        <h3>{service.name}</h3>
+                        <p className="center-service-meta">
+                          <strong>{formatPrice(service.price_clp)}</strong>
+                          <span>{service.duration_minutes} min</span>
+                        </p>
+                        {service.description && <p className="center-card-description">{service.description}</p>}
+                        {bookable ? (
+                          <button type="button" className="public-button public-button-outline"
+                            aria-label={`Reservar ${service.name}`}
+                            onClick={() => setChoice({ kind: 'service', service })}>Reservar <span aria-hidden="true">→</span></button>
+                        ) : <p className="center-card-unavailable">Sin profesionales disponibles para reservar.</p>}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : <p className="center-catalog-empty" role="status">{search ? 'No encontramos servicios que coincidan con tu búsqueda.' : 'No hay servicios disponibles.'}</p>}
+            </Tab>
+            <Tab eventKey="professional" title="Por profesional">
+              {searchField('professional', 'Buscar profesionales', 'Nombre o descripción')}
+              {professionals.length ? (
+                <div className="center-card-grid">
+                  {professionals.map(professional => (
+                    <article className="center-booking-card" key={professional.id}>
+                      <div className="center-professional-heading">
+                        <span className="center-avatar" aria-hidden="true">{professional.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toLocaleUpperCase('es-CL')}</span>
+                        <h3>{professional.name}</h3>
+                      </div>
+                      {professional.description && <p className="center-card-description">{professional.description}</p>}
+                      {center.services.length ? (
+                        <>
+                          <ul className="center-service-tags" aria-label={`Servicios de ${professional.name}`}>
+                            {center.services.map(service => <li key={service.id}>{service.name}</li>)}
+                          </ul>
+                          <button type="button" className="public-button public-button-outline stretched-link"
+                            aria-label={`Reservar con ${professional.name}`}
+                            onClick={() => setChoice({ kind: 'professional', professional })}>Reservar <span aria-hidden="true">→</span></button>
+                        </>
+                      ) : <p className="center-card-unavailable">Sin servicios disponibles para reservar.</p>}
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="center-catalog-empty" role="status">{search ? 'No encontramos profesionales que coincidan con tu búsqueda.' : 'No hay profesionales disponibles.'}</p>}
+            </Tab>
+          </Tabs>
+        </div>
+      </section>
+      {choice && <BookingModal center={center} slug={slug} choice={choice} onClose={() => setChoice(null)} />}
+    </main>
+  );
+}
 
 export function PublicCenterView() {
   const { slug = '' } = useParams();
-  const profile = useCenterProfile(slug);
-  const [service, setService] = useState('');
-  const [professional, setProfessional] = useState('');
-  const [slots, setSlots] = useState<Slot[]>([]);
-  const [slot, setSlot] = useState('');
-  const [revision, setRevision] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
-  useEffect(() => {
-    let active = true;
-    setSlots([]); setSlot(''); setBusy(false);
-    if (!db || !service || !professional) return;
-    setBusy(true);
-    const client = db;
-    async function loadSlots() {
-      const all: Slot[] = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error: err } = await client!.rpc('public_availability', { p_slug: slug, p_service: service, p_professional: professional }).range(from, from + 999);
-        if (!active) return;
-        if (err) { setError('No pudimos cargar los horarios.'); setBusy(false); return; }
-        const page = (data ?? []) as Slot[];
-        all.push(...page);
-        if (page.length < 1000) break;
-      }
-      if (active) { setSlots(all); setBusy(false); }
-    }
-    void loadSlots();
-    return () => { active = false; };
-  }, [slug, service, professional, revision]);
-  async function book(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); if (!db || !slot) return;
-    const form = new FormData(e.currentTarget); setBusy(true); setError('');
-    const { error: err } = await db.rpc('book_public_appointment', { p_slug: slug, p_service: service, p_professional: professional, p_start: slot, p_name: form.get('name'), p_email: form.get('email'), p_phone: form.get('phone') });
-    setBusy(false);
-    if (err) { setError(err.code === '23P01' || err.code === 'P0001' ? 'Este horario ya no está disponible. Elige otro horario actualizado.' : 'No pudimos reservar. Revisa tus datos e inténtalo de nuevo.'); setRevision(v => v + 1); return; }
-    setConfirmed(true);
-  }
-  const disabledReason = busy ? 'Espera mientras procesamos tu solicitud.' : !service ? 'Selecciona un servicio para continuar.' : !professional ? 'Selecciona un profesional para continuar.' : !slot ? 'Selecciona una fecha y hora para continuar.' : '';
-  if (profile.status === 'loading') return <main className="public-page">Cargando centro…</main>;
-  if (profile.status !== 'ready') return <main className="public-page"><h1>Centro no disponible</h1><p>{profile.status === 'missing' ? 'No encontramos este centro.' : 'No pudimos cargar el centro.'}</p></main>;
-  const center = profile.profile;
-  return <div className="public-site" lang="es-CL"><PublicHeader /><main className="public-page">
-    <section className="public-intro"><p className="eyebrow">RESERVA TU ATENCIÓN</p><h1>{center.name}</h1><p>{center.description}</p></section>
-    <div className="booking-grid"><section className="form-card"><h2>Servicios</h2>{center.services.length ? center.services.map(s => <div className="catalog-item" key={s.id}><strong>{s.name}</strong><span>{s.duration_minutes} min · {s.price_clp.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</span></div>) : <p>No hay servicios disponibles.</p>}
-      <h2>Profesionales</h2>{center.professionals.length ? center.professionals.map(p => <div className="catalog-item" key={p.id}>{p.name}</div>) : <p>No hay profesionales disponibles.</p>}</section>
-      <section className="form-card"><h2>Reserva una hora</h2>{confirmed ? <div className="success notice" role="status"><strong>¡Reserva confirmada!</strong><p>Tu hora quedó registrada para {dateFormat.format(new Date(slot))} a las {timeFormat.format(new Date(slot))}.</p></div> : <form onSubmit={e => void book(e)}>
-        <p>Puedes elegir primero un servicio o un profesional.</p>
-        <label htmlFor="service">Servicio</label><select id="service" required value={service} onChange={e => setService(e.target.value)}><option value="">Selecciona un servicio</option>{center.services.filter(s => !professional || center.professionals.find(p => p.id === professional)?.service_ids.includes(s.id)).map(s => <option value={s.id} key={s.id}>{s.name} · {s.duration_minutes} min</option>)}</select>
-        <label htmlFor="professional">Profesional</label><select id="professional" required value={professional} onChange={e => setProfessional(e.target.value)}><option value="">Selecciona un profesional</option>{center.professionals.filter(p => !service || p.service_ids.includes(service)).map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select>
-        {service && professional && <BookingCalendar slots={slots} selected={slot} onSelect={setSlot} busy={busy} />}
-        <label htmlFor="name">Nombre completo</label><input id="name" name="name" required minLength={2} maxLength={120} />
-        <label htmlFor="email">Correo electrónico</label><input id="email" name="email" type="email" required maxLength={254} />
-        <label htmlFor="phone">Teléfono</label><input id="phone" name="phone" type="tel" required pattern="\+?[0-9 ()-]{7,20}" />
-        {error && <p className="error notice" role="alert">{error}</p>}<span className="booking-submit-wrap" tabIndex={disabledReason ? 0 : undefined} aria-describedby={disabledReason ? "booking-disabled-reason" : undefined}><button className="button booking-submit" disabled={Boolean(disabledReason)}>Confirmar reserva</button>{disabledReason && <span className="booking-disabled-reason" id="booking-disabled-reason" role="tooltip">{disabledReason}</span>}</span>
-      </form>}</section></div></main></div>;
+  const result = useCenterProfile(slug);
+
+  return (
+    <div className="public-site" lang="es-CL">
+      <PublicHeader />
+      {result.status === 'ready' ? <CenterPage key={slug} center={result.profile} slug={slug} /> : (
+        <main className="public-container public-message">
+          {result.status === 'loading' ? <p role="status">Cargando centro…</p> : (
+            <>
+              <h1>Centro no disponible</h1>
+              <p>{result.status === 'missing' ? 'No encontramos este centro.' : 'No pudimos cargar el centro.'}</p>
+              <Link className="public-button public-button-outline" to="/">Volver al inicio</Link>
+            </>
+          )}
+        </main>
+      )}
+    </div>
+  );
 }
