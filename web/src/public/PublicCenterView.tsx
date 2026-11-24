@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
 import { BookingCalendar, type Slot } from '../shared/components/BookingCalendar';
 import { PublicHeader } from './PublicComponents';
-import { publicClient as db, useCenterProfile } from './centerProfile';
+import { apiUrl, fetchAvailability } from '../shared/api';
+import { useCenterProfile } from './centerProfile';
 
 export function PublicNotFound() { return <div className="public-site" lang="es-CL"><PublicHeader /><main className="public-container public-message"><h1>Página no disponible</h1><p>Revisa el enlace o vuelve al inicio de Redondeado.</p><Link className="public-button public-button-outline" to="/">Volver al inicio</Link></main></div>; }
 
@@ -21,33 +22,24 @@ export function PublicCenterView() {
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     setSlots([]); setSlot(''); setBusy(false);
-    if (!db || !service || !professional) return;
+    if (!service || !professional) return;
     setBusy(true);
-    const client = db;
-    async function loadSlots() {
-      const all: Slot[] = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error: err } = await client!.rpc('public_availability', { p_slug: slug, p_service: service, p_professional: professional }).range(from, from + 999);
-        if (!active) return;
-        if (err) { setError('No pudimos cargar los horarios.'); setBusy(false); return; }
-        const page = (data ?? []) as Slot[];
-        all.push(...page);
-        if (page.length < 1000) break;
-      }
-      if (active) { setSlots(all); setBusy(false); }
-    }
-    void loadSlots();
-    return () => { active = false; };
+    fetchAvailability(slug, service, professional, controller.signal)
+      .then(data => { setSlots(data); setBusy(false); })
+      .catch(() => { if (!controller.signal.aborted) { setError('No pudimos cargar los horarios.'); setBusy(false); } });
+    return () => controller.abort();
   }, [slug, service, professional, revision]);
   async function book(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); if (!db || !slot) return;
+    e.preventDefault(); if (!slot) return;
     const form = new FormData(e.currentTarget); setBusy(true); setError('');
-    const { error: err } = await db.rpc('book_public_appointment', { p_slug: slug, p_service: service, p_professional: professional, p_start: slot, p_name: form.get('name'), p_email: form.get('email'), p_phone: form.get('phone') });
-    setBusy(false);
-    if (err) { setError(err.code === '23P01' || err.code === 'P0001' ? 'Este horario ya no está disponible. Elige otro horario actualizado.' : 'No pudimos reservar. Revisa tus datos e inténtalo de nuevo.'); setRevision(v => v + 1); return; }
-    setConfirmed(true);
+    try {
+      const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/appointments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service_id: service, professional_id: professional, starts_at: slot, patient_name: form.get('name'), patient_email: form.get('email'), patient_phone: form.get('phone') }) });
+      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || 'No pudimos reservar. Inténtalo nuevamente.'); }
+      setConfirmed(true);
+    } catch (err) { setError(err instanceof Error ? err.message : 'No pudimos reservar. Inténtalo nuevamente.'); setRevision(v => v + 1); }
+    finally { setBusy(false); }
   }
   const disabledReason = busy ? 'Espera mientras procesamos tu solicitud.' : !service ? 'Selecciona un servicio para continuar.' : !professional ? 'Selecciona un profesional para continuar.' : !slot ? 'Selecciona una fecha y hora para continuar.' : '';
   if (profile.status === 'loading') return <main className="public-page">Cargando centro…</main>;

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Form, Modal } from 'react-bootstrap';
 import { BookingCalendar, type Slot } from '../../shared/components/BookingCalendar';
-import { publicClient } from '../../public/centerProfile';
+import { fetchAvailability } from '../../shared/api';
 
 type Options = { professionals: { id: string; name: string }[]; services: { id: string; name: string; duration_minutes: number }[] };
 export function NewAppointment({ show, onClose, onCreated, centerId, slug, token, apiUrl, scope }: { show: boolean; onClose: () => void; onCreated: () => void; centerId: string; slug: string; token: string; apiUrl: string; scope: 'personal' | 'center' }) {
@@ -25,22 +25,11 @@ export function NewAppointment({ show, onClose, onCreated, centerId, slug, token
   }, [show, centerId, token, apiUrl, scope]);
   useEffect(() => {
     setSlots([]); setSlot('');
-    if (!show || !service || !professional || !publicClient) return;
+    if (!show || !service || !professional) return;
     const controller = new AbortController(); setLoading(true); setError('');
-    const client = publicClient;
-    async function loadSlots() {
-      const all: Slot[] = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error: rpcError } = await client!.rpc('public_availability', { p_slug: slug, p_service: service, p_professional: professional }).range(from, from + 999).abortSignal(controller.signal);
-        if (controller.signal.aborted) return;
-        if (rpcError) { setLoading(false); setError('No se pudieron cargar los horarios disponibles.'); return; }
-        const page = (data ?? []) as Slot[];
-        all.push(...page);
-        if (page.length < 1000) break;
-      }
-      setSlots(all); setLoading(false);
-    }
-    void loadSlots();
+    fetchAvailability(slug, service, professional, controller.signal)
+      .then(data => { setSlots(data); setLoading(false); })
+      .catch(() => { if (!controller.signal.aborted) { setLoading(false); setError('No se pudieron cargar los horarios disponibles.'); } });
     return () => controller.abort();
   }, [show, service, professional, slug]);
   async function submit(event: FormEvent<HTMLFormElement>) {
