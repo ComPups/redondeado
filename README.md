@@ -48,9 +48,9 @@ cp .env.example .env
 npm run dev
 ```
 
-Set `SUPABASE_PUBLISHABLE_KEY` in `api/.env` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `web/.env` to the local publishable (or anon) key shown by `supabase status`; never use the secret or service-role key. Open the public site at http://localhost:5173/centro-bienestar-arrayan and staff sign-in at http://localhost:5173/staff/login. Signed-out staff routes redirect to sign-in. The frontend port is fixed; stop any process using it before starting the app. The API permits requests from this local origin. Restart local Supabase after changing its Auth configuration.
+Set `SUPABASE_PUBLISHABLE_KEY` in `api/.env` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `web/.env` to the local publishable (or anon) key shown by `supabase status`; never use the secret or service-role key. Open the landing page at http://localhost:5173/, the demo center profile at http://localhost:5173/centro-bienestar-arrayan, and staff sign-in at http://localhost:5173/staff/login. Signed-out staff routes redirect to sign-in. The frontend defaults to port 5173, which the API allows by default. For a second worktree, use the alternate-port commands below. Restart local Supabase after changing its Auth configuration.
 
-The staff interface supports sign-in, center selection, role display and a read-only appointment list. Center administrators see their center's appointments; members and limited staff see their own. Platform administrators can create centers and edit center, service, appointment, profile and membership records across centers. The platform editor is an initial JSON-based interface; changes remain subject to database constraints. [COM-10](https://linear.app/compups/issue/COM-10) will implement public booking; [COM-11](https://linear.app/compups/issue/COM-11) and [COM-12](https://linear.app/compups/issue/COM-12) will add settings and fuller appointment management. The `staff` slug is reserved for staff routes. Production hosting must rewrite frontend paths to `index.html` for direct navigation and refresh.
+The staff interface supports sign-in, center selection, role display and a read-only appointment list. Center administrators see their center's appointments; members and limited staff see their own. Platform administrators can create centers and edit center, service, appointment, profile and membership records across centers. The platform editor is an initial JSON-based interface; changes remain subject to database constraints. [COM-10](https://linear.app/compups/issue/COM-10) tracks the booking flow; the public center profile already displays the center, active services, and professionals. [COM-11](https://linear.app/compups/issue/COM-11) and [COM-12](https://linear.app/compups/issue/COM-12) will add settings and fuller appointment management. The `staff` slug is reserved for staff routes. Production hosting must rewrite frontend paths to `index.html` for direct navigation and refresh.
 
 To build for production, run `npm run build` in each directory. The built API can be started with `npm start` in `api/`. The API reads its optional `.env` file at startup. Vite reads its `.env` files automatically; only variables prefixed `VITE_` are exposed to browser code, so never put secrets in them.
 
@@ -71,6 +71,32 @@ The demo center is open daily from 09:00 to 18:00 in `America/Santiago`, with th
 
 Services expose only active catalog data publicly. Appointment access is constrained by membership or the separate platform administrator role through row-level security. Platform roles must be provisioned by a trusted operator; clients cannot assign them. Auth account administration and the center administrator's settings interface are not implemented yet.
 
-Run `supabase test db` after the local database is migrated and seeded. The authorization test creates its own fictional two-center fixtures inside a rolled-back transaction.
+Run `supabase test db` after the local database is migrated and seeded. The authorization test creates its own fictional two-center fixtures inside a rolled-back transaction. This command needs the local Supabase stack and works without either application's `.env`.
 
-With the API running and the seeded local database available, run `node --env-file=.env test/staff.mjs` in `api/` to check sign-in and role-scoped appointment access.
+Fresh worktrees start without the ignored `.env` files. With local Supabase running and `jq` installed, load the local connection settings into the shell from the repository root:
+
+```sh
+redondeado_local_config="$(supabase status --output-format json)"
+export SUPABASE_URL="$(printf '%s' "$redondeado_local_config" | jq -er '.API_URL')"
+export SUPABASE_PUBLISHABLE_KEY="$(printf '%s' "$redondeado_local_config" | jq -er '.PUBLISHABLE_KEY // .ANON_KEY')"
+unset redondeado_local_config
+```
+
+Run `npm --prefix api run dev` in that shell to start the API. In a second shell, repeat the exports and run `(cd api && node test/staff.mjs)` to check sign-in and role-scoped appointment access.
+
+For the web app, load the same settings in its terminal, then run `VITE_SUPABASE_URL="$SUPABASE_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" npm --prefix web run dev`.
+
+### Run the frontend and API in a second worktree
+
+Use the same running local Supabase stack. In two terminals at the worktree root, load the local Supabase exports above in both, then start the API and frontend on an unused pair of ports:
+
+```sh
+# Terminal 1
+PORT=3014 WEB_ORIGIN=http://localhost:5174 npm --prefix api run dev
+
+# Terminal 2
+VITE_SUPABASE_URL="$SUPABASE_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+  VITE_API_URL=http://localhost:3014 npm --prefix web run dev -- --port 5174
+```
+
+Open http://localhost:5174/ for the landing page or http://localhost:5174/staff/login to sign in. If you run the staff tests against this API, set `TEST_API_URL=http://localhost:3014` in the test terminal.

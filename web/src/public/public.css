@@ -1,0 +1,264 @@
+.public-site {
+  --public-ink: #182e27;
+  --public-muted: #496059;
+  --public-green: #12634f;
+  min-height: 100vh;
+  background: #fbfcf9;
+  color: var(--public-ink);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.public-site a { text-decoration: none; }
+.public-site a:focus-visible {
+  outline: 3px solid #207459;
+  outline-offset: 4px;
+}
+
+.public-container {
+  width: min(1120px, calc(100% - 3rem));
+  margin-inline: auto;
+}
+
+.public-header { border-bottom: 1px solid #e0e8e0; }
+.public-header-inner {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.public-header .brand { padding: 0; color: var(--public-ink); }
+.public-team-link {
+  color: var(--public-green);
+  font-weight: 700;
+  padding-block: .6rem;
+}
+
+.public-team-link:hover { text-decoration: underline; }
+
+.public-hero {
+  display: grid;
+  grid-template-columns: 1.07fr 1fr;
+  align-items: center;
+  gap: clamp(2.5rem, 6vw, 6rem);
+  padding-block: clamp(3rem, 7vw, 6.5rem);
+}
+
+.public-hero h1 {
+  max-width: 12ch;
+  margin: 0 0 1.35rem;
+  font-size: clamp(2.8rem, 5vw, 4.55rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -.055em;
+}
+
+.public-hero h1 em { color: var(--public-green); font-style: normal; }
+.public-hero-copy p {
+  max-width: 34ch;
+  color: var(--public-muted);
+  font-size: 1.15rem;
+  line-height: 1.6;
+  margin-bottom: 1.8rem;
+}
+
+.public-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 48px;
+  padding: .75rem 1.25rem;
+  border: 1px solid transparent;
+  border-radius: .75rem;
+  background: var(--public-green);
+  color: #fff;
+  font-weight: 700;
+}
+
+.public-button:hover { background: #0c4c3b; color: #fff; }
+.public-button-outline {
+  border-color: #a9c4b7;
+  background: transparent;
+  color: var(--public-green);
+}
+
+.public-button-outline:hover { background: #d9ede2; color: #124d3e; }
+
+.booking-preview {
+  display: grid;
+  place-items: center;
+  min-height: 350px;
+  padding: clamp(1.25rem, 5vw, 3.75rem);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 87% 95%, transparent 0 21%, #ffffff32 21.2% 21.5%, transparent 21.7% 30%, #ffffff32 30.2% 30.5%, transparent 30.7% 39%, #ffffff32 39.2% 39.5%, transparent 39.7%),
+    linear-gradient(145deg, #c7e7d7, #91c6af);
+}
+
+.booking-preview-card {
+  width: min(100%, 330px);
+  padding: clamp(1rem, 3vw, 1.6rem);
+  background: #fff;
+  box-shadow: 0 21px 46px #204f4330;
+  border-radius: 1.25rem;
+}
+
+.booking-preview-label, .public-kicker {
+  margin-bottom: .5rem;
+  color: var(--public-green);
+  font-size: .875rem;
+  font-weight: 700;
+}
+
+.booking-preview-card h2 {
+  margin: 0 0 1.05rem;
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  font-weight: 800;
+}
+
+.booking-preview-option {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .65rem .75rem;
+  border: 1px solid #dbe7df;
+  border-radius: .75rem;
+}
+
+.booking-preview-option + .booking-preview-option { margin-top: .65rem; }
+.booking-preview-option div span {
+  display: block;
+  color: var(--public-muted);
+  font-size: .875rem;
+}
+
+.booking-icon {
+  position: relative;
+  flex: none;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: .6rem;
+  background: #e6f3ec;
+  color: var(--public-green);
+}
+
+.booking-person::before, .booking-person::after {
+  position: absolute;
+  content: '';
+  border: 1.5px solid currentColor;
+}
+
+.booking-person::before {
+  width: .45rem;
+  height: .45rem;
+  top: .55rem;
+  border-radius: 50%;
+}
+
+.booking-person::after {
+  width: .9rem;
+  height: .46rem;
+  bottom: .53rem;
+  border-radius: 1rem 1rem .25rem .25rem;
+}
+
+.public-catalog { background: #eef5ee; }
+.public-catalog-inner, .public-team-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: center;
+  padding-block: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.public-catalog h2, .booking-steps h2, .public-team h2 {
+  margin-bottom: .75rem;
+  font-size: clamp(1.75rem, 3.8vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+
+.public-catalog-copy > p:not(.public-kicker), .public-team p, .booking-steps p, .catalog-preview p {
+  color: var(--public-muted);
+  line-height: 1.6;
+}
+
+.catalog-preview {
+  background: #fff;
+  border: 1px solid #dbe8dc;
+  border-radius: 1.05rem;
+  padding: 1.25rem clamp(1rem, 3vw, 1.75rem);
+}
+
+.catalog-preview h3, .booking-steps h3 { font-weight: 800; }
+.catalog-preview p, .public-team p, .booking-steps li p { margin-bottom: 0; }
+.public-service-list { margin: 0; padding: 0; list-style: none; }
+.public-service-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: .3rem .8rem;
+  padding-block: .8rem;
+}
+
+.public-service-list li + li { border-top: 1px solid #e0e9e2; }
+.public-service-list li > span { color: var(--public-muted); white-space: nowrap; }
+
+.booking-steps { padding-block: clamp(2.5rem, 7vw, 5.5rem); }
+.booking-steps ol {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin: 1.5rem 0 0;
+  padding-left: 1.4rem;
+}
+
+.booking-steps li { padding-left: .3rem; }
+.booking-steps li::marker { font-weight: 800; color: var(--public-green); }
+.public-team { background: #e4f0ea; }
+.public-team-inner { grid-template-columns: 1fr auto; }
+
+.public-profile, .public-message { padding-block: clamp(2.5rem, 7vw, 5.5rem); }
+.public-profile h1, .public-message h1 { font-weight: 800; overflow-wrap: anywhere; }
+.public-profile-notice {
+  padding: 1rem;
+  border-radius: .75rem;
+  background: #e4f0ea;
+}
+
+.public-profile-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.public-profile-columns section {
+  padding: 1.25rem;
+  border: 1px solid #dbe8dc;
+  border-radius: 1.05rem;
+  background: #fff;
+}
+
+.public-profile-columns h2 { font-weight: 800; }
+
+@media (max-width: 800px) {
+  .public-hero, .public-catalog-inner, .public-profile-columns {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+  .public-hero h1 { max-width: 15ch; }
+  .booking-preview { min-height: 270px; }
+}
+
+@media (max-width: 580px) {
+  .public-container { width: calc(100% - 2rem); }
+  .public-header-inner { min-height: 64px; }
+  .public-hero { padding-top: 2.5rem; }
+  .booking-steps ol, .public-team-inner { grid-template-columns: 1fr; }
+  .public-team-inner { gap: 1.25rem; justify-items: start; }
+}
