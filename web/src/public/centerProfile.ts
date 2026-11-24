@@ -14,6 +14,8 @@ export type Service = {
 type CenterProfile = {
   name: string;
   description: string;
+  opens_at: string;
+  closes_at: string;
   services: Service[];
   professionals: { id: string; name: string; service_ids: string[] }[];
 };

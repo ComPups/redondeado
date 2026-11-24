@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import { createCenter, listCenters, type Center, type CenterInput } from '../centers';
-import { BackofficeLayout } from '../components/BackofficeLayout';
 import { CenterForm } from '../components/CenterForm';
 import { CenterList } from '../components/CenterList';
 
@@ -36,7 +35,7 @@ export function CentersView({ token, onCreated, onSelect }: { token: string; onC
   }
 
   return (
-    <BackofficeLayout>
+    <>
       <div className="page-heading">
         <div><p className="eyebrow">TU ORGANIZACIÓN</p><h1>Centros</h1><p className="lead">Todos tus espacios de atención, en un solo lugar.</p></div>
         <Button className="button-primary" aria-expanded={showForm} aria-controls="nuevo-centro" onClick={() => { setShowForm(true); setError(''); setSuccess(''); }}>+ Nuevo centro</Button>
@@ -47,6 +46,6 @@ export function CentersView({ token, onCreated, onSelect }: { token: string; onC
         <CenterList centers={centers} loading={loading} onSelect={onSelect} />
         {showForm && <CenterForm submitting={submitting} onSubmit={handleCreate} onCancel={() => { setShowForm(false); setError(''); }} />}
       </div>
-    </BackofficeLayout>
+    </>
   );
 }

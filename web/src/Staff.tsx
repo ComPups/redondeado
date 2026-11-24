@@ -1,7 +1,10 @@
 import { createClient, type Session } from '@supabase/supabase-js';
 import { useEffect, useState, type FormEvent } from 'react';
+import { useLocation } from 'react-router';
 import { LoginView } from './backoffice/views/LoginView';
 import { CentersView } from './backoffice/views/CentersView';
+import { BackofficeLayout } from './backoffice/components/BackofficeLayout';
+import { formatPrice, useCenterProfile } from './public/centerProfile';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const url = import.meta.env.VITE_SUPABASE_URL;
@@ -47,15 +50,26 @@ function PlatformAdmin({ token, onCreated }: { token: string; onCreated: () => v
   </section>;
 }
 export function Staff() {
+  const location = useLocation();
+  const centerPage = location.pathname === '/staff/centro';
+  const servicesPage = location.pathname === '/staff/servicios';
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [centersError, setCentersError] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [agendaError, setAgendaError] = useState('');
   const [centers, setCenters] = useState<Center[]>([]);
   const [selected, setSelected] = useState('');
   const [role, setRole] = useState<Center['role'] | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [agendaFilter, setAgendaFilter] = useState<'upcoming' | 'past'>('upcoming');
   const [centersRevision, setCentersRevision] = useState(0);
+  const [agendaLoading, setAgendaLoading] = useState(false);
+  const selectedCenter = centers.find(c => c.center_id === selected);
+  const profileResult = useCenterProfile(selectedCenter?.centers.slug ?? '');
+  const profile = profileResult.status === 'ready' ? profileResult.profile : null;
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setLoading(false); });
@@ -64,27 +78,28 @@ export function Staff() {
   }, []);
   useEffect(() => {
     if (loading) return;
-    if (!session && location.pathname !== '/staff/login') location.replace('/staff/login');
-    if (session && location.pathname === '/staff/login') location.replace('/staff');
+    if (!session && location.pathname !== '/staff/login') window.location.replace('/staff/login');
+    if (session && location.pathname === '/staff/login') window.location.replace('/staff');
   }, [session, loading]);
   useEffect(() => {
-    setCenters([]); setSelected(''); setRole(null); setAppointments([]); setPlatformAdmin(false);
+    setCenters([]); setSelected(''); setRole(null); setAppointments([]); setPlatformAdmin(false); setDisplayName(null); setCentersError(''); setProfileError(''); setAgendaError('');
     if (!session) return;
     let active = true;
     staffFetch('/staff/centers', session.access_token).then((data: Center[]) => {
       if (active) { setCenters(data); setSelected(data[0]?.center_id ?? ''); }
-    }).catch(() => { if (active) setError('Could not load your centers.'); });
-    staffFetch('/staff/me', session.access_token).then(data => { if (active) setPlatformAdmin(data.platformAdmin); }).catch(() => { if (active) setError('Could not load your role.'); });
+    }).catch(() => { if (active) setCentersError('No pudimos cargar tus centros.'); });
+    staffFetch('/staff/me', session.access_token).then(data => { if (active) { setPlatformAdmin(data.platformAdmin); setDisplayName(data.displayName); } }).catch(() => { if (active) setProfileError('No pudimos cargar tu perfil.'); });
     return () => { active = false; };
   }, [session, centersRevision]);
   useEffect(() => {
-    setRole(null); setAppointments([]);
+    setRole(null); setAppointments([]); setAgendaLoading(false); setAgendaError('');
     if (!session || !selected) return;
+    setAgendaLoading(true);
     let active = true;
     const base = `/staff/centers/${encodeURIComponent(selected)}`;
     Promise.all([staffFetch(base, session.access_token), staffFetch(`${base}/appointments`, session.access_token)])
-      .then(([membership, rows]) => { if (active) { setRole(membership.role); setAppointments(rows); setError(''); } })
-      .catch(() => { if (active) setError('Could not load center access or appointments.'); });
+      .then(([membership, rows]) => { if (active) { setRole(membership.role); setAppointments(rows); setAgendaLoading(false); } })
+      .catch(() => { if (active) { setAgendaError('No pudimos cargar los agendamientos.'); setAgendaLoading(false); } });
     return () => { active = false; };
   }, [session, selected]);
   async function signIn(email: string, password: string) {
@@ -94,12 +109,31 @@ export function Staff() {
   if (!supabase) return <main><h1>Backoffice</h1><p>Supabase is not configured.</p></main>;
   if (loading) return <main>Checking session…</main>;
   if (!session) return <LoginView onSignIn={signIn} />;
-  return <main><h1>Backoffice</h1><button onClick={() => void supabase.auth.signOut()}>Sign out</button>
-    {error && <p role="alert">{error}</p>}
-    {centers.length === 0 ? <p>No centers available.</p> : <label>Center <select value={selected} onChange={e => setSelected(e.target.value)}>{centers.map(c => <option key={c.center_id} value={c.center_id}>{c.centers.name}</option>)}</select></label>}
-    {platformAdmin && <CentersView token={session.access_token} onCreated={() => setCentersRevision(v => v + 1)} onSelect={id => { setSelected(id); document.getElementById("center-appointments")?.scrollIntoView({ behavior: "smooth" }); }} />}
-    {platformAdmin && <PlatformAdmin token={session.access_token} onCreated={() => setCentersRevision(v => v + 1)} />}
-    {role && <section id="center-appointments"><h2>{centers.find(c => c.center_id === selected)?.centers.name}</h2><p><a href={`/${centers.find(c => c.center_id === selected)?.centers.slug}`}>Ver página pública del centro</a></p><p>Role: {role}</p><p>{role === 'platform_administrator' ? 'You can administer all centers.' : role === 'administrator' ? 'You can view all center appointments. Settings management is coming soon.' : role === 'member' ? 'You can view your own appointments.' : 'You have read-only access to your own appointments.'}</p>
-    <h2>Appointments</h2>{appointments.length ? <ul>{appointments.map(a => <li key={a.id}>{new Date(a.starts_at).toLocaleString()} — {a.service_name} — {a.patient_name}</li>)}</ul> : <p>No appointments.</p>}</section>}
-  </main>;
+  const now = Date.now();
+  const visibleAppointments = appointments.filter(a => agendaFilter === 'upcoming' ? new Date(a.starts_at).getTime() >= now : new Date(a.starts_at).getTime() < now);
+  if (agendaFilter === 'past') visibleAppointments.reverse();
+  const roleLabel = { administrator: 'Administrador', member: 'Miembro', limited: 'Acceso limitado', platform_administrator: 'Administrador de plataforma' };
+  return <BackofficeLayout page={centerPage ? 'center' : servicesPage ? 'services' : 'agenda'} onSignOut={() => void supabase.auth.signOut()}>
+    {centersError && <p className="notice error" role="alert">{centersError}</p>}
+    {profileError && <p className="notice error" role="alert">{profileError}</p>}
+    {centers.length === 0 ? <div className="empty">No tienes centros disponibles.</div> : <>
+      <div className="staff-context"><span>MI CENTRO</span><label>Centro <select value={selected} onChange={e => setSelected(e.target.value)}>{centers.map(c => <option key={c.center_id} value={c.center_id}>{c.centers.name}</option>)}</select></label></div>
+      {centerPage ? <section className="staff-hero" aria-labelledby="center-name">
+        <div><p className="staff-kicker">MI CENTRO</p><h1 id="center-name">{selectedCenter?.centers.name}</h1>
+          <p>{profile?.description || (profileResult.status === 'loading' ? 'Cargando información del centro…' : 'Consulta la actividad y los servicios de tu centro.')}</p>
+          {selectedCenter?.centers.slug && <a className="staff-public-link" href={`/${selectedCenter.centers.slug}`}>Ver página pública <span aria-hidden="true">↗</span></a>}</div>
+        <div className="staff-hero-meta"><div><span>TU ROL</span><strong>{role ? roleLabel[role] : 'Cargando…'}</strong></div><div><span>HORARIO DE ATENCIÓN</span><strong>{profile?.opens_at && profile.closes_at ? `${profile.opens_at.slice(0, 5)} – ${profile.closes_at.slice(0, 5)}` : 'No disponible'}</strong></div></div>
+      </section> : servicesPage ? <>
+      <section className="staff-section staff-page-section" id="servicios"><div className="section-heading"><div><p className="eyebrow">CATÁLOGO DEL CENTRO</p><h1>Servicios ofrecidos</h1><p>Todos los profesionales ofrecen estos servicios.</p></div>{profile && <span className="count">{profile.services.length}</span>}</div>
+        {profileResult.status === 'loading' ? <div className="empty" role="status">Cargando servicios…</div> : !profile ? <div className="empty" role="alert">No pudimos cargar los servicios.</div> : profile.services.length ? <div className="staff-list">{profile.services.map(service => <article className="staff-row" key={service.id}><div className="staff-row-icon" aria-hidden="true">✳︎</div><div><h3>{service.name}</h3><p>{service.duration_minutes} minutos</p></div><strong>{formatPrice(service.price_clp)}</strong></article>)}</div> : <div className="empty">Este centro aún no tiene servicios disponibles.</div>}
+      </section></> : <>
+      <div className="staff-welcome"><p className="eyebrow">TU ESPACIO DE TRABAJO</p><h1>{displayName ? `¡Hola, ${displayName.split(/\s+/)[0]}!` : '¡Hola!'}</h1><p>Revisa la agenda y los servicios de {selectedCenter?.centers.name}.</p></div>
+      <section className="staff-section" id="agendamientos"><div className="section-heading"><div><p className="eyebrow">TU AGENDA</p><h2>Agendamientos</h2><p>{role === 'administrator' || role === 'platform_administrator' ? 'Revisa los agendamientos de tu centro.' : 'Revisa los agendamientos asignados a ti.'}</p></div><span className="count">{visibleAppointments.length}</span></div>
+        <div className="agenda-filters" role="group" aria-label="Filtrar agendamientos"><button type="button" aria-pressed={agendaFilter === 'upcoming'} onClick={() => setAgendaFilter('upcoming')}>Próximos</button><button type="button" aria-pressed={agendaFilter === 'past'} onClick={() => setAgendaFilter('past')}>Anteriores</button></div>
+        {agendaLoading ? <div className="empty" role="status">Cargando agendamientos…</div> : agendaError ? <div className="notice error" role="alert">{agendaError}</div> : visibleAppointments.length ? <div className="staff-list">{visibleAppointments.map(a => <article className="staff-row" key={a.id}><div className="staff-row-icon" aria-hidden="true">▦</div><div><h3>{a.patient_name}</h3><p>{a.service_name}</p></div><time dateTime={a.starts_at}>{new Date(a.starts_at).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Santiago' })}</time></article>)}</div> : <div className="empty">{agendaFilter === 'upcoming' ? 'No tienes próximos agendamientos.' : 'No hay agendamientos anteriores.'}</div>}
+      </section>
+      </>}
+    </>}
+    {platformAdmin && !centerPage && !servicesPage && <details className="staff-admin"><summary>Administración de plataforma</summary><CentersView token={session.access_token} onCreated={() => setCentersRevision(v => v + 1)} onSelect={id => { setSelected(id); document.getElementById('agendamientos')?.scrollIntoView({ behavior: 'smooth' }); }} /><PlatformAdmin token={session.access_token} onCreated={() => setCentersRevision(v => v + 1)} /></details>}
+  </BackofficeLayout>;
 }
