@@ -1,33 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
-import { createCenter, listCenters, type Center, type CenterInput } from '../centers';
+import { createCenter, type Center, type CenterInput } from '../centers';
 import { BackofficeLayout } from '../components/BackofficeLayout';
 import { CenterForm } from '../components/CenterForm';
 import { CenterList } from '../components/CenterList';
 
-export function CentersView({ token, onCreated, onSelect }: { token: string; onCreated: () => void; onSelect: (id: string) => void }) {
-  const [centers, setCenters] = useState<Center[]>([]);
-  const [loading, setLoading] = useState(true);
+export function CentersView({ token, centers, loading, onCreated, onSelect }: { token: string; centers: Center[]; loading: boolean; onCreated: () => void; onSelect: (id: string) => void }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    listCenters(token, controller.signal)
-      .then(setCenters)
-      .catch((err: Error) => { if (!controller.signal.aborted) setError(err.message); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [token]);
-
   async function handleCreate(input: CenterInput) {
     setError(''); setSuccess(''); setSubmitting(true);
     try {
-      const center = await createCenter(token, input);
-      setCenters(current => [...current, center].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+      await createCenter(token, input);
       setSuccess('Centro creado correctamente.');
       onCreated();
       setShowForm(false);
