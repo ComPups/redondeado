@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(22);
 
 select is((select count(*) from auth.users where email in ('camila.rojas@example.com', 'matias.soto@example.com', 'valentina.munoz@example.com') and encrypted_password = extensions.crypt('Demo-Arrayan-2026!', encrypted_password) and email_confirmed_at is not null), 3::bigint, 'demo accounts have confirmed password credentials');
 select is((select count(*) from auth.identities where user_id in ('20000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000003') and provider = 'email'), 3::bigint, 'demo accounts have email identities');
@@ -31,6 +31,7 @@ select throws_ok($$insert into public.center_memberships values ('40000000-0000-
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000002', true);
+select is(public.staff_display_name(), 'Francisco Díaz', 'member sees own display name');
 select is((select count(*) from public.center_memberships), 1::bigint, 'member sees only own membership');
 select is((select role::text from public.center_memberships), 'member', 'member role is available');
 select is((select count(*) from public.centers), 1::bigint, 'member sees only their center');
@@ -39,9 +40,11 @@ select ok(not has_table_privilege('authenticated', 'public.center_memberships', 
 select ok(not has_table_privilege('authenticated', 'auth.users', 'SELECT'), 'private auth accounts are not exposed');
 select throws_ok($$select user_id from public.staff_profiles$$, '42501', null, 'authenticated users cannot read profile Auth IDs');
 select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000004', true);
+select is(public.staff_display_name(), 'Tomás Araya', 'name follows authenticated user');
 select is((select slug from public.centers), 'fixture-sur', 'other center administrator is isolated');
 select is((select role::text from public.center_memberships), 'administrator', 'administrator role is available');
 set local role anon;
+select throws_ok($$select public.staff_display_name()$$, '42501', null, 'anonymous user cannot call staff name function');
 select is((select display_name from public.staff_profiles where professional_id = '60000000-0000-4000-8000-000000000002'), 'Francisco Díaz', 'public can identify a professional by display name');
 select is((select professional_id::text from public.staff_profiles where display_name = 'Francisco Díaz'), '60000000-0000-4000-8000-000000000002', 'public can read the professional ID');
 select throws_ok($$select user_id from public.staff_profiles$$, '42501', null, 'anonymous users cannot read profile Auth IDs');

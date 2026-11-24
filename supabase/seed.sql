@@ -37,12 +37,6 @@ insert into public.services (id, center_id, name, price_clp, duration_minutes) v
   ('70000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'Consulta nutricional', 30000, 45),
   ('70000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 'Sesión de kinesiología', 28000, 45);
 
--- Explicit examples: each professional offers the service in their demo appointment.
-insert into public.professional_services (center_id, professional_user_id, service_id) values
-  ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001'),
-  ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002', '70000000-0000-4000-8000-000000000002'),
-  ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000003', '70000000-0000-4000-8000-000000000003');
-
 -- Fixed examples inside the current booking month, in the center's time zone.
 -- They are fictional and may be in the past near the end of that month.
 insert into public.appointments (id, center_id, professional_user_id, service_id, service_name,
