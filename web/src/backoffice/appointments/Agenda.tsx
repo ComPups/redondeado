@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Modal } from 'react-bootstrap';
 import { NewAppointment } from './NewAppointment';
 
@@ -21,7 +21,13 @@ function santiagoInstant(value: string): Date | null {
   return localInput(result.toISOString()) === value ? result : null;
 }
 
-export function Agenda({ appointments, role, token, centerId, apiUrl, refresh, loading, error, scope = 'personal' }: { appointments: Appointment[]; role: string; token: string; centerId: string; apiUrl: string; refresh: () => void; loading: boolean; error: string; scope?: 'personal' | 'center' }) {
+export function Agenda({ role, token, centerId, apiUrl, scope = 'personal' }: { role: string; token: string; centerId: string; apiUrl: string; scope?: 'personal' | 'center' }) {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
   const [creating, setCreating] = useState(false);
   const [past, setPast] = useState(false);
   const [selected, setSelected] = useState<Appointment | null>(null);
@@ -29,8 +35,22 @@ export function Agenda({ appointments, role, token, centerId, apiUrl, refresh, l
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const now = Date.now();
-  const visible = appointments.filter(a => past ? new Date(a.starts_at).getTime() < now : new Date(a.starts_at).getTime() >= now).sort((a, b) => past ? Date.parse(b.starts_at) - Date.parse(a.starts_at) : Date.parse(a.starts_at) - Date.parse(b.starts_at));
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setError(''); setAppointments([]); setHasMore(false);
+    const query = new URLSearchParams({ scope, period: past ? 'past' : 'upcoming', page: String(page) });
+    fetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments?${query}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error(); return response.json(); })
+      .then((result: { appointments: Appointment[]; has_more: boolean }) => {
+        if (controller.signal.aborted) return;
+        if (!result.appointments.length && page > 1) { setPage(page - 1); return; }
+        setAppointments(result.appointments); setHasMore(result.has_more); setLoading(false);
+      })
+      .catch(() => { if (!controller.signal.aborted) { setError('No se pudieron cargar los agendamientos.'); setLoading(false); } });
+    return () => controller.abort();
+  }, [apiUrl, centerId, token, scope, past, page, revision]);
+  const refresh = () => setRevision(value => value + 1);
+  const visible = appointments;
   function close() { setSelected(null); setEditing(false); setMessage(''); setConfirmDelete(false); }
   async function request(method: string, body?: unknown) {
     setBusy(true); setMessage('');
@@ -49,16 +69,17 @@ export function Agenda({ appointments, role, token, centerId, apiUrl, refresh, l
     const duration = Date.parse(selected!.ends_at) - Date.parse(selected!.starts_at);
     void request('PATCH', { patient_name: form.get('patient_name'), patient_email: form.get('patient_email'), patient_phone: form.get('patient_phone'), starts_at: start.toISOString(), ends_at: new Date(start.getTime() + duration).toISOString() });
   }
-  return <section className="staff-section" id="agendamientos"><div className="section-heading"><div><p className="eyebrow">{scope === 'center' ? 'AGENDA DEL CENTRO' : 'TU AGENDA'}</p><h2>{scope === 'center' ? 'Agendamientos del centro' : 'Agendamientos'}</h2><p>{scope === 'center' ? 'Revisa los agendamientos de tu centro.' : 'Revisa los agendamientos asignados a ti.'}</p></div><div className="agenda-actions"><span className="count">{visible.length}</span>{role !== 'limited' && <Button className="button-primary" onClick={() => setCreating(true)}>+ Agendar cita</Button>}</div></div>
-    <div className="agenda-filters" aria-label="Filtrar citas"><button type="button" aria-pressed={!past} onClick={() => setPast(false)}>Próximas</button><button type="button" aria-pressed={past} onClick={() => setPast(true)}>Pasadas</button></div>
+  return <section className="staff-section" id="agendamientos"><div className="section-heading"><div><p className="eyebrow">{scope === 'center' ? 'AGENDA DEL CENTRO' : 'TU AGENDA'}</p><h2>{scope === 'center' ? 'Agendamientos del centro' : 'Agendamientos'}</h2><p>{scope === 'center' ? 'Revisa los agendamientos de tu centro.' : 'Revisa los agendamientos asignados a ti.'}</p></div><div className="agenda-actions"><span className="count">{visible.length} en esta página</span>{role !== 'limited' && <Button className="button-primary" onClick={() => setCreating(true)}>+ Agendar cita</Button>}</div></div>
+    <div className="agenda-filters" aria-label="Filtrar citas"><button type="button" aria-pressed={!past} onClick={() => { setPage(1); setPast(false); }}>Próximas</button><button type="button" aria-pressed={past} onClick={() => { setPage(1); setPast(true); }}>Pasadas</button></div>
     {loading ? <p role="status">Cargando agendamientos…</p> : error ? <p role="alert">{error} <button onClick={refresh}>Reintentar</button></p> : visible.length ? <ul className="agenda-list">{visible.map(a => <li key={a.id}><button type="button" onClick={() => { setSelected(a); setMessage(''); }}><strong>{format(a.starts_at)}</strong> · {a.service_name} · {a.patient_name}{a.professional_name && <> · {a.professional_name}</>}</button></li>)}</ul> : <p>{past ? 'No hay citas pasadas.' : 'No hay citas próximas.'}</p>}
+    {!loading && !error && (page > 1 || hasMore) && <nav className="agenda-pagination" aria-label="Páginas de agendamientos"><Button variant="outline-secondary" disabled={page === 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span>Página {page}</span><Button variant="outline-secondary" disabled={!hasMore} onClick={() => setPage(value => value + 1)}>Siguiente</Button></nav>}
     <NewAppointment scope={scope} show={creating} onClose={() => setCreating(false)} onCreated={refresh} centerId={centerId} token={token} apiUrl={apiUrl} />
     <Modal show={!!selected} onHide={close} enforceFocus={!confirmDelete} centered><Modal.Header closeButton><Modal.Title>Detalle de la cita</Modal.Title></Modal.Header>{selected && <><Modal.Body>
       {message && <p role="alert">{message}</p>}
       {editing ? <form id="appointment-form" onSubmit={save} className="appointment-form">
-        <label>Nombre <input name="patient_name" required defaultValue={selected.patient_name} /></label>
-        <label>Correo <input name="patient_email" type="email" required defaultValue={selected.patient_email} /></label>
-        <label>Teléfono <input name="patient_phone" required defaultValue={selected.patient_phone} /></label>
+        <label>Nombre <input name="patient_name" required minLength={2} maxLength={120} defaultValue={selected.patient_name} /></label>
+        <label>Correo <input name="patient_email" type="email" required maxLength={254} defaultValue={selected.patient_email} /></label>
+        <label>Teléfono <input name="patient_phone" required pattern="\+?[0-9 ()-]{7,20}" defaultValue={selected.patient_phone} /></label>
         <label>Fecha y hora (Santiago) <input name="starts_at" type="datetime-local" required defaultValue={localInput(selected.starts_at)} /></label>
         <p>La duración de la cita se mantiene al cambiar la hora.</p>
       </form> : <dl><dt>Paciente</dt><dd>{selected.patient_name}</dd><dt>Correo</dt><dd><a href={`mailto:${selected.patient_email}`}>{selected.patient_email}</a></dd><dt>Teléfono</dt><dd><a href={`tel:${selected.patient_phone}`}>{selected.patient_phone}</a></dd><dt>Fecha y hora</dt><dd>{format(selected.starts_at)} – {new Date(selected.ends_at).toLocaleTimeString('es-CL', { timeStyle: 'short', timeZone: 'America/Santiago' })}</dd><dt>Servicio</dt><dd>{selected.service_name}</dd>{selected.professional_name && <><dt>Profesional</dt><dd>{selected.professional_name}</dd></>}</dl>}

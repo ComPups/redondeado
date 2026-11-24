@@ -7,6 +7,19 @@ if (!url || !key) throw new Error('Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY
 async function request(path, token) {
   return fetch(`${api}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
 }
+async function appointments(path, token) {
+  const all = [];
+  for (const period of ['upcoming', 'past']) {
+    for (let page = 1; ; page++) {
+      const response = await request(`${path}?scope=center&period=${period}&page=${page}`, token);
+      assert.equal(response.status, 200);
+      const data = await response.json();
+      all.push(...data.appointments);
+      if (!data.has_more) break;
+    }
+  }
+  return all;
+}
 assert.equal((await request('/staff/centers')).status, 401);
 assert.equal((await request('/staff/centers', 'invalid')).status, 401);
 assert.equal((await request('/staff/platform/centers')).status, 401);
@@ -20,7 +33,7 @@ for (const [email, role, count] of [['camila.rojas@example.com', 'administrator'
   assert.equal(centers[0].role, role);
   const path = `/staff/centers/${centers[0].center_id}`;
   assert.equal((await (await request(path, token)).json()).role, role);
-  const rows = await (await request(`${path}/appointments`, token)).json();
+  const rows = await appointments(`${path}/appointments`, token);
   assert.equal(rows.length, count);
   const direct = await client.from('appointments').select('id');
   assert.ifError(direct.error);
@@ -37,7 +50,7 @@ assert.equal((await (await request('/staff/me', platformToken)).json()).platform
 const platformCenters = await (await request('/staff/centers', platformToken)).json();
 assert.ok(platformCenters.length >= 1);
 assert.ok(platformCenters.every(center => center.role === 'platform_administrator'));
-const platformAppointments = await (await request(`/staff/centers/${platformCenters.find(c => c.center_id === '10000000-0000-4000-8000-000000000001').center_id}/appointments`, platformToken)).json();
+const platformAppointments = await appointments(`/staff/centers/${platformCenters.find(c => c.center_id === '10000000-0000-4000-8000-000000000001').center_id}/appointments`, platformToken);
 assert.equal(platformAppointments.length, 3);
 const services = await (await request('/staff/platform/services', platformToken)).json();
 const service = services[0];

@@ -1,0 +1,11 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(4);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-4000-8000-000000000002', true);
+select throws_ok($$update public.appointments set patient_email = 'invalid' where id = '80000000-0000-4000-8000-000000000002'$$, '22023', null, 'invalid email rejected');
+select throws_ok($$update public.appointments set patient_phone = '123' where id = '80000000-0000-4000-8000-000000000002'$$, '22023', null, 'invalid phone rejected');
+select throws_ok($$update public.appointments set patient_name = 'X' where id = '80000000-0000-4000-8000-000000000002'$$, '22023', null, 'short name rejected');
+select lives_ok($$update public.appointments set patient_name = 'Paciente Prueba', patient_email = 'test@example.com', patient_phone = '+56912345678' where id = '80000000-0000-4000-8000-000000000002'$$, 'valid contact changes accepted');
+select * from finish();
+rollback;

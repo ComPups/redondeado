@@ -100,3 +100,5 @@ VITE_SUPABASE_URL="$SUPABASE_URL" VITE_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLI
 ```
 
 Open http://localhost:5174/ for the landing page or http://localhost:5174/staff/login to sign in. If you run the staff tests against this API, set `TEST_API_URL=http://localhost:3014` in the test terminal.
+
+Staff appointment lists use `GET /staff/centers/:centerId/appointments?scope=personal|center&period=upcoming|past&page=1` and return up to 50 records per page with `page` and `has_more`. Center-wide access is restricted to administrators.

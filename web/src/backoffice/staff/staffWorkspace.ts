@@ -7,7 +7,6 @@ const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = url && key ? createClient(url, key) : null;
 export type Center = { center_id: string; role: 'platform_administrator' | 'administrator' | 'member' | 'limited'; centers: CenterDetails };
-import type { Appointment } from '../appointments/Agenda';
 export async function staffFetch(path: string, token: string, signal?: AbortSignal) {
   const response = await fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${token}` }, signal });
   if (!response.ok) throw new Error(`Request failed (${response.status})`);
@@ -22,15 +21,12 @@ export function useStaffWorkspace() {
   const [centersLoading, setCentersLoading] = useState(false);
   const [selected, setSelected] = useState('');
   const [role, setRole] = useState<Center['role'] | null>(null);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [agendaLoading, setAgendaLoading] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [platformResolved, setPlatformResolved] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [centersError, setCentersError] = useState('');
   const [platformError, setPlatformError] = useState('');
   const [roleError, setRoleError] = useState('');
-  const [agendaError, setAgendaError] = useState('');
   const [revision, setRevision] = useState(0);
   const [centerRevision, setCenterRevision] = useState(0);
   const authVersion = useRef(0);
@@ -40,11 +36,11 @@ export function useStaffWorkspace() {
   const centersRef = useRef<Center[]>([]);
   const clearCenter = useCallback(() => {
     centerVersion.current++;
-    setRole(null); setAppointments([]); setAgendaLoading(false); setRoleError(''); setAgendaError('');
+    setRole(null); setRoleError('');
   }, []);
   const selectCenter = useCallback((id: string) => {
     if (id === selectedRef.current) return;
-    clearCenter(); setAgendaLoading(Boolean(id)); selectedRef.current = id; setSelected(id);
+    clearCenter(); selectedRef.current = id; setSelected(id);
   }, [clearCenter]);
   const clearWorkspace = useCallback(() => {
     authVersion.current++; clearCenter(); selectedRef.current = ''; setSelected('');
@@ -82,7 +78,7 @@ export function useStaffWorkspace() {
       centersRef.current = data; setCenters(data); setCentersLoading(false); setCentersError('');
       if (!current) selectCenter(data[0]?.center_id ?? '');
       else if (previous && previous.role !== current.role) {
-        clearCenter(); setAgendaLoading(true); setCenterRevision(v => v + 1);
+        clearCenter(); setCenterRevision(v => v + 1);
       }
     }).catch(() => { if (valid()) { setCentersError('Could not load your centers.'); setCentersLoading(false); } });
     staffFetch('/staff/me', session.access_token, controller.signal).then(data => {
@@ -99,9 +95,6 @@ export function useStaffWorkspace() {
     staffFetch(base, session.access_token, controller.signal).then(data => {
       if (valid()) { setRole(data.role); setRoleError(''); }
     }).catch(() => { if (valid()) setRoleError('Could not load center access.'); });
-    staffFetch(`${base}/appointments`, session.access_token, controller.signal).then(data => {
-      if (valid()) { setAppointments(data); setAgendaError(''); setAgendaLoading(false); }
-    }).catch(() => { if (valid()) { setAgendaError('Could not load appointments.'); setAgendaLoading(false); } });
     return () => controller.abort();
   }, [session, selected, centerRevision]);
   async function signIn(email: string, password: string) {
@@ -113,5 +106,5 @@ export function useStaffWorkspace() {
     setSigningOut(true); clearWorkspace(); sessionUser.current = null; setSession(null);
     void supabase?.auth.signOut({ scope: 'local' }).catch(() => {}).finally(() => setSigningOut(false));
   }
-  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, appointments, agendaLoading, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, agendaError, selectCenter, signIn, signOut, refreshCenters: () => setRevision(v => v + 1), refreshAgenda: () => { setAgendaLoading(true); setCenterRevision(v => v + 1); } };
+  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, refreshCenters: () => setRevision(v => v + 1) };
 }
