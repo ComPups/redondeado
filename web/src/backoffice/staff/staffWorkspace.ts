@@ -7,7 +7,7 @@ const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = url && key ? createClient(url, key) : null;
 export type Center = { center_id: string; role: 'platform_administrator' | 'administrator' | 'member' | 'limited'; centers: CenterDetails };
-export type Appointment = { id: string; service_name: string; patient_name: string; starts_at: string };
+import type { Appointment } from '../appointments/Agenda';
 export async function staffFetch(path: string, token: string, signal?: AbortSignal) {
   const response = await fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${token}` }, signal });
   if (!response.ok) throw new Error(`Request failed (${response.status})`);
@@ -113,5 +113,5 @@ export function useStaffWorkspace() {
     setSigningOut(true); clearWorkspace(); sessionUser.current = null; setSession(null);
     void supabase?.auth.signOut({ scope: 'local' }).catch(() => {}).finally(() => setSigningOut(false));
   }
-  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, appointments, agendaLoading, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, agendaError, selectCenter, signIn, signOut, refreshCenters: () => setRevision(v => v + 1) };
+  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, appointments, agendaLoading, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, agendaError, selectCenter, signIn, signOut, refreshCenters: () => setRevision(v => v + 1), refreshAgenda: () => { setAgendaLoading(true); setCenterRevision(v => v + 1); } };
 }

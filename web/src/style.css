@@ -30,3 +30,7 @@
 .agenda-filters{display:flex;gap:6px;margin:-3px 0 18px}.agenda-filters button{border:1px solid #dce8e3;border-radius:8px;padding:8px 15px;background:#fff;color:#5b776d;font-size:13px;font-weight:700;cursor:pointer}.agenda-filters button[aria-pressed=true]{background:#e4f3ec;border-color:#b9ded0;color:#187663}.agenda-filters button:focus-visible{outline:3px solid #8fc9b9;outline-offset:2px}
 .staff-shell .sidebar nav a[aria-current=page]{background:#e8f5f1;color:#1b7769}.staff-welcome{padding:20px 0 0}.staff-welcome h1{color:#23483c}.staff-welcome>p:last-child{color:#71877e;margin:0;line-height:1.6}@media(max-width:700px){.staff-shell .sidebar nav a{padding:8px 4px;gap:5px}}
 .staff-page-section{margin-top:28px}
+
+.agenda-list{list-style:none;padding:0}.agenda-list li{margin:.5rem 0}.agenda-list button{width:100%;text-align:left;padding:1rem;border:1px solid #dce5e3;border-radius:8px;background:white}.appointment-form{display:grid;gap:1rem}.appointment-form label{display:grid;gap:.25rem}.appointment-form input{padding:.5rem;border:1px solid #b8c9c3;border-radius:5px}
+
+.agenda-actions{display:flex;align-items:center;gap:12px}.confirm-delete-backdrop{z-index:1060}.confirm-delete-modal{z-index:1065}.appointment-form .form-label{margin-bottom:.3rem}.modal-footer .btn-outline-secondary{border:1px solid #6c757d}.modal-footer .btn-danger{background:#c73939;color:#fff}.modal-footer .btn-danger:hover{background:#a92d2d}
