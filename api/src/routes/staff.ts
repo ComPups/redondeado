@@ -4,7 +4,11 @@ import { requireCenterAccess } from '../middleware/centerAccess.js';
 export const staffRoutes = Router();
 const router = staffRoutes;
 
-router.get('/me', (_req, res) => res.json({ platformAdmin: res.locals.staff.platformAdmin }));
+router.get('/me', async (_req, res) => {
+  const { data, error } = await res.locals.staff.db.rpc('staff_display_name');
+  if (error) { res.status(500).json({ error: 'Could not load staff profile' }); return; }
+  res.json({ platformAdmin: res.locals.staff.platformAdmin, displayName: data });
+});
 
 router.get('/centers', async (_req, res) => {
   const { db, userId, platformAdmin } = res.locals.staff;
