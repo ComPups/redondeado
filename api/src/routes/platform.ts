@@ -18,6 +18,25 @@ router.post('/platform/centers', async (req, res) => {
   res.status(201).json(data);
 });
 
+// Assignments use membership user IDs, which are visible only to platform administrators.
+router.get('/platform/professional-services', async (_req, res) => {
+  const { data, error } = await res.locals.staff.db.from('professional_services').select('center_id, professional_user_id, service_id');
+  if (error) { res.status(500).json({ error: 'Could not load assignments' }); return; }
+  res.json(data);
+});
+router.post('/platform/professional-services', async (req, res) => {
+  const { center_id, professional_user_id, service_id } = req.body ?? {};
+  if (![center_id, professional_user_id, service_id].every(value => typeof value === 'string')) { res.status(400).json({ error: 'Invalid assignment' }); return; }
+  const { data, error } = await res.locals.staff.db.from('professional_services').insert({ center_id, professional_user_id, service_id }).select().single();
+  if (error) { res.status(400).json({ error: 'Could not create assignment' }); return; }
+  res.status(201).json(data);
+});
+router.delete('/platform/professional-services/:centerId/:userId/:serviceId', async (req, res) => {
+  const { error } = await res.locals.staff.db.from('professional_services').delete().eq('center_id', req.params.centerId).eq('professional_user_id', req.params.userId).eq('service_id', req.params.serviceId);
+  if (error) { res.status(400).json({ error: 'Could not delete assignment' }); return; }
+  res.status(204).end();
+});
+
 const editable: Record<string, { key: string; columns: string[]; fields: string }> = {
   centers: { key: 'id', columns: ['name', 'slug', 'description', 'opens_at', 'closes_at'], fields: 'id, name, slug, description, opens_at, closes_at' },
   services: { key: 'id', columns: ['name', 'price_clp', 'duration_minutes', 'active'], fields: 'id, center_id, name, price_clp, duration_minutes, active' },

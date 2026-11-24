@@ -7,7 +7,7 @@ const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = url && key ? createClient(url, key) : null;
-type Center = { center_id: string; role: 'platform_administrator' | 'administrator' | 'member' | 'limited'; centers: { id: string; name: string } };
+type Center = { center_id: string; role: 'platform_administrator' | 'administrator' | 'member' | 'limited'; centers: { id: string; name: string; slug: string } };
 type Appointment = { id: string; service_name: string; patient_name: string; starts_at: string };
 async function staffFetch(path: string, token: string) {
   const response = await fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -97,9 +97,9 @@ export function Staff() {
   return <main><h1>Backoffice</h1><button onClick={() => void supabase.auth.signOut()}>Sign out</button>
     {error && <p role="alert">{error}</p>}
     {centers.length === 0 ? <p>No centers available.</p> : <label>Center <select value={selected} onChange={e => setSelected(e.target.value)}>{centers.map(c => <option key={c.center_id} value={c.center_id}>{c.centers.name}</option>)}</select></label>}
-    {platformAdmin && <CentersView token={session.access_token} onCreated={() => setCentersRevision(v => v + 1)} />}
+    {platformAdmin && <CentersView token={session.access_token} onCreated={() => setCentersRevision(v => v + 1)} onSelect={id => { setSelected(id); document.getElementById("center-appointments")?.scrollIntoView({ behavior: "smooth" }); }} />}
     {platformAdmin && <PlatformAdmin token={session.access_token} onCreated={() => setCentersRevision(v => v + 1)} />}
-    {role && <><p>Role: {role}</p><p>{role === 'platform_administrator' ? 'You can administer all centers.' : role === 'administrator' ? 'You can view all center appointments. Settings management is coming soon.' : role === 'member' ? 'You can view your own appointments.' : 'You have read-only access to your own appointments.'}</p>
-    <h2>Appointments</h2>{appointments.length ? <ul>{appointments.map(a => <li key={a.id}>{new Date(a.starts_at).toLocaleString()} — {a.service_name} — {a.patient_name}</li>)}</ul> : <p>No appointments.</p>}</>}
+    {role && <section id="center-appointments"><h2>{centers.find(c => c.center_id === selected)?.centers.name}</h2><p><a href={`/${centers.find(c => c.center_id === selected)?.centers.slug}`}>Ver página pública del centro</a></p><p>Role: {role}</p><p>{role === 'platform_administrator' ? 'You can administer all centers.' : role === 'administrator' ? 'You can view all center appointments. Settings management is coming soon.' : role === 'member' ? 'You can view your own appointments.' : 'You have read-only access to your own appointments.'}</p>
+    <h2>Appointments</h2>{appointments.length ? <ul>{appointments.map(a => <li key={a.id}>{new Date(a.starts_at).toLocaleString()} — {a.service_name} — {a.patient_name}</li>)}</ul> : <p>No appointments.</p>}</section>}
   </main>;
 }

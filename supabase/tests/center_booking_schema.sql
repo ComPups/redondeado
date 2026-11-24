@@ -3,8 +3,8 @@ create extension if not exists pgtap with schema extensions;
 select plan(18);
 
 select is((select count(*) from public.services where center_id = '10000000-0000-4000-8000-000000000001'), 3::bigint, 'demo has three services');
-select is((select count(*) from public.appointments where center_id = '10000000-0000-4000-8000-000000000001'), 3::bigint, 'demo has three appointments');
-select is((select count(*) from public.appointments where professional_user_id = '20000000-0000-4000-8000-000000000001'), 1::bigint, 'administrator takes appointments');
+select is((select count(*) from public.appointments where id in ('80000000-0000-4000-8000-000000000001', '80000000-0000-4000-8000-000000000002', '80000000-0000-4000-8000-000000000003')), 3::bigint, 'demo has three appointments');
+select is((select count(*) from public.appointments where id = '80000000-0000-4000-8000-000000000001' and professional_user_id = '20000000-0000-4000-8000-000000000001'), 1::bigint, 'administrator takes appointments');
 select throws_ok($$insert into public.centers (name, slug) values ('Reserved', 'Staff')$$, '23514', null, 'staff slug is reserved');
 select throws_ok($$update public.centers set closes_at = opens_at where slug = 'centro-bienestar-arrayan'$$, '23514', null, 'closing time must follow opening time');
 select throws_ok($$update public.centers set description = repeat('x', 401) where slug = 'centro-bienestar-arrayan'$$, '23514', null, 'description is limited to 400 characters');

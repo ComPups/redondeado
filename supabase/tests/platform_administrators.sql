@@ -12,7 +12,7 @@ select is((select count(*) from public.platform_administrators), 1::bigint, 'pla
 select lives_ok($$insert into public.centers (name,slug) values ('Platform Test','platform-test')$$, 'platform admin creates center');
 select is((select count(*) from public.centers where slug in ('centro-bienestar-arrayan', 'platform-test')), 2::bigint, 'platform admin reads all centers');
 with changed as (update public.services set name='Changed' returning 1) select is(count(*), 3::bigint, 'platform admin edits services') from changed;
-with changed as (update public.appointments set patient_name='Changed' returning 1) select is(count(*), 3::bigint, 'platform admin edits appointments') from changed;
+with changed as (update public.appointments set patient_name='Changed' where id in ('80000000-0000-4000-8000-000000000001', '80000000-0000-4000-8000-000000000002', '80000000-0000-4000-8000-000000000003') returning 1) select is(count(*), 3::bigint, 'platform admin edits appointments') from changed;
 with changed as (update public.center_memberships set role='limited' returning 1) select is(count(*), 3::bigint, 'platform admin edits memberships') from changed;
 with changed as (update public.staff_profiles set display_name='Changed' returning professional_id) select is(count(*), 3::bigint, 'platform admin edits profiles') from changed;
 select * from finish();

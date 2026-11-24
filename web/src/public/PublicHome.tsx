@@ -15,7 +15,7 @@ export function PublicHome() {
         <section className="public-container public-hero" aria-labelledby="hero-title">
           <div className="public-hero-copy">
             <h1 id="hero-title">Agenda tu próxima <em>atención en línea</em></h1>
-            <p>Explora los servicios y profesionales del centro. Pronto podrás reservar una hora sin crear una cuenta.</p>
+            <p>Explora los servicios y profesionales del centro. Reserva una hora sin crear una cuenta.</p>
             <Link className="public-button" to={centerPath}>Ver perfil del centro</Link>
           </div>
           <div className="booking-preview">
@@ -54,7 +54,7 @@ export function PublicHome() {
         </section>
 
         <section className="public-container booking-steps" aria-labelledby="steps-title">
-          <h2 id="steps-title">Cómo funcionará la reserva</h2>
+          <h2 id="steps-title">Cómo reservar</h2>
           <ol>
             <li><h3>Elige servicio y profesional</h3><p>Puedes empezar por cualquiera de los dos.</p></li>
             <li><h3>Selecciona una hora</h3><p>Revisa los horarios disponibles para tu elección.</p></li>
