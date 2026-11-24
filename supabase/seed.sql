@@ -22,20 +22,20 @@ from auth.users where id in (
 
 insert into public.platform_administrators (user_id) values ('20000000-0000-4000-8000-000000000004');
 
-insert into public.staff_profiles (user_id, professional_id, display_name) values
-  ('20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', 'Camila Rojas'),
-  ('20000000-0000-4000-8000-000000000002', '50000000-0000-4000-8000-000000000002', 'Matías Soto'),
-  ('20000000-0000-4000-8000-000000000003', '50000000-0000-4000-8000-000000000003', 'Valentina Muñoz');
+insert into public.staff_profiles (user_id, professional_id, display_name, description) values
+  ('20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', 'Camila Rojas', 'Acompaña a personas adultas en el manejo del estrés y el cuidado de su salud emocional.'),
+  ('20000000-0000-4000-8000-000000000002', '50000000-0000-4000-8000-000000000002', 'Matías Soto', 'Trabaja con cada persona para establecer hábitos de alimentación que se adapten a su rutina.'),
+  ('20000000-0000-4000-8000-000000000003', '50000000-0000-4000-8000-000000000003', 'Valentina Muñoz', 'Se enfoca en la recuperación del movimiento y el retorno progresivo a las actividades cotidianas.');
 insert into public.center_memberships (center_id, user_id, role) values
   ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'administrator'),
   ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002', 'member'),
   ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000003', 'limited');
 
 
-insert into public.services (id, center_id, name, price_clp, duration_minutes) values
-  ('70000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Consulta de psicología', 35000, 60),
-  ('70000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'Consulta nutricional', 30000, 45),
-  ('70000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 'Sesión de kinesiología', 28000, 45);
+insert into public.services (id, center_id, name, price_clp, duration_minutes, description) values
+  ('70000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Consulta de psicología', 35000, 60, 'Conversación clínica para revisar lo que te preocupa y acordar objetivos de acompañamiento.'),
+  ('70000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'Consulta nutricional', 30000, 45, 'Evaluación de tus hábitos y necesidades para definir un plan de alimentación personalizado.'),
+  ('70000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 'Sesión de kinesiología', 28000, 45, 'Evaluación de movilidad y ejercicios guiados según tu lesión o motivo de consulta.');
 
 -- Fixed examples inside the current booking month, in the center's time zone.
 -- They are fictional and may be in the past near the end of that month.

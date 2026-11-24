@@ -37,7 +37,8 @@ function mockApi() {
     const path = new URL(String(input)).pathname;
     if (path === '/staff/centers') return response(centers);
     if (path === '/staff/me') return response({ platformAdmin: auth.role === 'platform_administrator', displayName: 'Camila Rojas' });
-    if (path === '/staff/platform/centers') return response([]);
+    if (path === '/staff/platform/editable-fields') return response({ centers: ['image_url'] });
+    if (path === '/staff/platform/centers') return response([{ id: 'a', name: 'Center A', image_url: null }]);
     if (path === '/staff/centers/a') return response({ role: auth.role }, !failRole);
     if (path === '/staff/centers/b') return response({ role: auth.role });
     if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60 }] });
@@ -205,6 +206,12 @@ describe('staff workspace through the screen', () => {
     const cards = screen.getByRole('region', { name: 'Centros existentes' });
     await waitFor(() => expect(within(cards).getByRole('heading', { name: 'Renamed Center B' })).toBeTruthy());
     expect(screen.queryByRole('heading', { name: 'Center B' })).toBeNull();
+  });
+  it('uses the API field list to populate the platform editor', async () => {
+    await signIn('platform_administrator');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    const editor = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Editable fields (JSON)' });
+    expect(JSON.parse(editor.value)).toEqual({ image_url: null });
   });
   it('keeps a role error when the agenda succeeds', async () => {
     failRole = true;

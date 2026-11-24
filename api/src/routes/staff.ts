@@ -106,7 +106,7 @@ router.get('/centers/:centerId/availability', async (req, res) => {
   if (centerError || !center) { res.status(500).json({ error: 'No se pudo cargar el centro.' }); return; }
   const slots: { starts_at: string }[] = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await db.rpc('public_availability', { p_slug: center.slug, p_service: service_id, p_professional: professional_id }).range(from, from + 999);
+    const { data, error } = await res.locals.publicDb.rpc('public_availability', { p_slug: center.slug, p_service: service_id, p_professional: professional_id }).range(from, from + 999);
     if (error) { res.status(500).json({ error: 'No se pudieron cargar los horarios disponibles.' }); return; }
     const page = (data ?? []) as { starts_at: string }[];
     slots.push(...page);
