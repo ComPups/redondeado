@@ -25,6 +25,7 @@ export function useStaffWorkspace() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [agendaLoading, setAgendaLoading] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [platformResolved, setPlatformResolved] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [centersError, setCentersError] = useState('');
   const [platformError, setPlatformError] = useState('');
@@ -47,7 +48,7 @@ export function useStaffWorkspace() {
   }, [clearCenter]);
   const clearWorkspace = useCallback(() => {
     authVersion.current++; clearCenter(); selectedRef.current = ''; setSelected('');
-    centersRef.current = []; setCenters([]); setCentersLoading(false); setPlatformAdmin(false); setDisplayName(null); setCentersError(''); setPlatformError('');
+    centersRef.current = []; setCenters([]); setCentersLoading(false); setPlatformAdmin(false); setPlatformResolved(false); setDisplayName(null); setCentersError(''); setPlatformError('');
   }, [clearCenter]);
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -85,8 +86,8 @@ export function useStaffWorkspace() {
       }
     }).catch(() => { if (valid()) { setCentersError('Could not load your centers.'); setCentersLoading(false); } });
     staffFetch('/staff/me', session.access_token, controller.signal).then(data => {
-      if (valid()) { setPlatformAdmin(data.platformAdmin); setDisplayName(data.displayName); setPlatformError(''); }
-    }).catch(() => { if (valid()) setPlatformError('Could not load your platform role.'); });
+      if (valid()) { setPlatformAdmin(data.platformAdmin); setPlatformResolved(true); setDisplayName(data.displayName); setPlatformError(''); }
+    }).catch(() => { if (valid()) { setPlatformResolved(true); setPlatformError('No pudimos comprobar tu acceso.'); } });
     return () => controller.abort();
   }, [session, revision, selectCenter, clearCenter]);
   useEffect(() => {
@@ -112,5 +113,5 @@ export function useStaffWorkspace() {
     setSigningOut(true); clearWorkspace(); sessionUser.current = null; setSession(null);
     void supabase?.auth.signOut({ scope: 'local' }).catch(() => {}).finally(() => setSigningOut(false));
   }
-  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, appointments, agendaLoading, platformAdmin, displayName, centersError, platformError, roleError, agendaError, selectCenter, signIn, signOut, refreshCenters: () => setRevision(v => v + 1) };
+  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, appointments, agendaLoading, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, agendaError, selectCenter, signIn, signOut, refreshCenters: () => setRevision(v => v + 1) };
 }

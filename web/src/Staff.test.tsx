@@ -50,7 +50,7 @@ async function signIn(role: CenterRole) {
   fireEvent.change(await screen.findByLabelText('Correo electrónico'), { target: { value: `${role}@example.com` } });
   fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'password' } });
   fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
-  await screen.findByRole('heading', { name: 'Agendamientos' });
+  await screen.findByRole('heading', { name: role === 'platform_administrator' ? 'Centros' : 'Agendamientos' });
 }
 beforeEach(() => { window.history.replaceState({}, '', '/staff/login'); auth.session = null; auth.signOutOptions = null; auth.revokeFails = false; centers = originalCenters; pendingAgenda = null; failRole = false; mockApi(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -124,17 +124,16 @@ describe('staff workspace through the screen', () => {
     expect(await screen.findByRole('button', { name: 'Ingresar' })).toBeTruthy();
     expect(screen.queryByText(/Patient A/)).toBeNull();
   });
-  it('refreshes platform center cards and the selector from the same list', async () => {
+  it('opens platform administration directly and refreshes center cards', async () => {
     await signIn('platform_administrator');
-    fireEvent.click(screen.getByText('Administración de plataforma'));
+    expect(screen.queryByRole('heading', { name: 'Agendamientos' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Mi centro' })).toBeNull();
+    expect(screen.queryByText('Tu espacio de trabajo')).toBeNull();
     expect(await screen.findByRole('heading', { name: 'Center B' })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Centro'), { target: { value: 'b' } });
     centers = originalCenters.map(c => c.center_id === 'b' ? { ...c, centers: { ...c.centers, name: 'Renamed Center B' } } : c);
     fireEvent.click(screen.getByRole('button', { name: 'Actualizar centros' }));
     const cards = screen.getByRole('region', { name: 'Centros existentes' });
     await waitFor(() => expect(within(cards).getByRole('heading', { name: 'Renamed Center B' })).toBeTruthy());
-    expect(screen.getByRole('option', { name: 'Renamed Center B' })).toBeTruthy();
-    expect((screen.getByLabelText('Centro') as HTMLSelectElement).value).toBe('b');
     expect(screen.queryByRole('heading', { name: 'Center B' })).toBeNull();
   });
   it('keeps a role error when the agenda succeeds', async () => {

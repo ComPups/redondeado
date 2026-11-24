@@ -5,7 +5,7 @@ import { createCenter, type Center, type CenterInput } from '../centers';
 import { CenterForm } from '../components/CenterForm';
 import { CenterList } from '../components/CenterList';
 
-export function CentersView({ token, centers, loading, onCreated, onSelect }: { token: string; centers: Center[]; loading: boolean; onCreated: () => void; onSelect: (id: string) => void }) {
+export function CentersView({ token, centers, loading, onCreated, onSelect }: { token: string; centers: Center[]; loading: boolean; onCreated: () => void; onSelect?: (id: string) => void }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);

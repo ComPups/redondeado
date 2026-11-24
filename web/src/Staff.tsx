@@ -11,7 +11,7 @@ export function Staff() {
   const location = useLocation();
   const centerPage = location.pathname === '/staff/centro';
   const servicesPage = location.pathname === '/staff/servicios';
-  const { configured, session, loading, centers, centersLoading, selected, role, appointments, agendaLoading, platformAdmin, displayName, centersError, platformError, roleError, agendaError, selectCenter, signIn, signOut, refreshCenters } = useStaffWorkspace();
+  const { configured, session, loading, centers, centersLoading, selected, role, appointments, agendaLoading, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, agendaError, selectCenter, signIn, signOut, refreshCenters } = useStaffWorkspace();
   const [agendaFilter, setAgendaFilter] = useState<'upcoming' | 'past'>('upcoming');
   const selectedCenter = centers.find(c => c.center_id === selected);
   const profileResult = useCenterProfile(selectedCenter?.centers.slug ?? '');
@@ -19,6 +19,14 @@ export function Staff() {
   if (!configured) return <main><h1>Backoffice</h1><p>Supabase is not configured.</p></main>;
   if (loading) return <main>Checking session…</main>;
   if (!session) return <LoginView onSignIn={signIn} />;
+  if (!platformResolved) return <main role="status">Cargando acceso…</main>;
+  if (platformError) return <BackofficeLayout page="platform" onSignOut={signOut}><p className="notice error" role="alert">{platformError}</p></BackofficeLayout>;
+  if (platformAdmin) return <BackofficeLayout page="platform" onSignOut={signOut}>
+    {centersError && <p className="notice error" role="alert">{centersError}</p>}
+    <div className="staff-context"><span>ADMINISTRACIÓN DE PLATAFORMA</span><button className="staff-signout" type="button" onClick={refreshCenters}>Actualizar centros</button></div>
+    <div id="centros"><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} /></div>
+    <div id="registros" className="staff-admin"><PlatformAdmin token={session.access_token} onCreated={refreshCenters} /></div>
+  </BackofficeLayout>;
   const now = Date.now();
   const visibleAppointments = appointments.filter(a => agendaFilter === 'upcoming' ? new Date(a.starts_at).getTime() >= now : new Date(a.starts_at).getTime() < now);
   if (agendaFilter === 'past') visibleAppointments.reverse();
@@ -44,6 +52,6 @@ export function Staff() {
       </section>
       </>}
     </>}
-    {platformAdmin && !centerPage && !servicesPage && <details className="staff-admin"><summary>Administración de plataforma</summary><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} onSelect={id => { selectCenter(id); document.getElementById('agendamientos')?.scrollIntoView({ behavior: 'smooth' }); }} /><PlatformAdmin token={session.access_token} onCreated={refreshCenters} /></details>}
+
   </BackofficeLayout>;
 }
