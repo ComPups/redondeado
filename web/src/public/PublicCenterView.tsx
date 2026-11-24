@@ -1,66 +1,106 @@
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { PublicHeader, ServiceList } from './PublicComponents';
-import { useCenterProfile } from './centerProfile';
+import { PublicHeader } from './PublicComponents';
+import { publicClient as db, useCenterProfile } from './centerProfile';
 
-function PublicMessage({ title, copy }: { title: string; copy: string }) {
-  return (
-    <div className="public-site" lang="es-CL">
-      <PublicHeader />
-      <main className="public-container public-message">
-        <h1>{title}</h1>
-        <p>{copy}</p>
-        <Link className="public-button public-button-outline" to="/">Volver al inicio</Link>
-      </main>
+export function PublicNotFound() { return <div className="public-site" lang="es-CL"><PublicHeader /><main className="public-container public-message"><h1>Página no disponible</h1><p>Revisa el enlace o vuelve al inicio de Redondeado.</p><Link className="public-button public-button-outline" to="/">Volver al inicio</Link></main></div>; }
+
+type Slot = { starts_at: string };
+const dateFormat = new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', dateStyle: 'full' });
+const timeFormat = new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit' });
+const dayKeyFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit' });
+const monthFormat = new Intl.DateTimeFormat('es-CL', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+
+function BookingCalendar({ slots, selected, onSelect, busy }: { slots: Slot[]; selected: string; onSelect: (slot: string) => void; busy: boolean }) {
+  const [day, setDay] = useState('');
+  const [monthOffset, setMonthOffset] = useState(0);
+  const today = dayKeyFormat.format(new Date());
+  const [currentYear, currentMonth] = today.split('-').map(Number);
+  const first = new Date(Date.UTC(currentYear, currentMonth - 1 + monthOffset, 1));
+  const year = first.getUTCFullYear();
+  const month = first.getUTCMonth() + 1;
+  const offset = (first.getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const byDay = new Map<string, Slot[]>();
+  for (const item of slots) {
+    const key = dayKeyFormat.format(new Date(item.starts_at));
+    byDay.set(key, [...(byDay.get(key) ?? []), item]);
+  }
+  const activeDay = byDay.has(day) ? day : '';
+  const monthHasSlots = [...byDay.keys()].some(key => key.startsWith(`${year}-${String(month).padStart(2, '0')}-`));
+  return <fieldset className="booking-calendar" disabled={busy}>
+    <legend>Elige una fecha y hora</legend>
+    <div className="calendar-navigation"><button type="button" aria-label="Mes anterior" disabled={monthOffset === 0} onClick={() => { setMonthOffset(0); setDay(''); onSelect(''); }}>‹</button><p className="calendar-month" aria-live="polite">{monthFormat.format(first)}</p><button type="button" aria-label="Mes siguiente" disabled={monthOffset === 1} onClick={() => { setMonthOffset(1); setDay(''); onSelect(''); }}>›</button></div>
+    <div className="calendar-grid" aria-label="Calendario de disponibilidad">
+      {['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'].map((label, index) => <span className="calendar-weekday" key={index}>{label}</span>)}
+      {Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}
+      {Array.from({ length: days }, (_, i) => {
+        const key = `${year}-${String(month).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
+        const available = byDay.has(key);
+        const label = new Intl.DateTimeFormat('es-CL', { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, i + 1)));
+        return <button type="button" key={key} className={activeDay === key ? 'calendar-day selected' : 'calendar-day'} disabled={!available} aria-label={`${label}${available ? ', con horas disponibles' : ', sin horas disponibles'}`} aria-pressed={activeDay === key} onClick={() => { setDay(key); onSelect(''); }}>{i + 1}</button>;
+      })}
     </div>
-  );
-}
-
-export function PublicNotFound() {
-  return <PublicMessage title="Página no disponible" copy="Revisa el enlace o vuelve al inicio de Redondeado." />;
+    {busy ? <p role="status">Cargando horarios…</p> : !monthHasSlots ? <p>No hay horarios disponibles este mes.</p> : !activeDay ? <p>Selecciona un día disponible. Horarios en hora de Santiago.</p> : <><p>Horarios disponibles · {dateFormat.format(new Date(byDay.get(activeDay)![0].starts_at))}</p><div className="calendar-times">{byDay.get(activeDay)!.map(item => <button type="button" key={item.starts_at} className={selected === item.starts_at ? 'calendar-time selected' : 'calendar-time'} aria-pressed={selected === item.starts_at} onClick={() => onSelect(item.starts_at)}>{timeFormat.format(new Date(item.starts_at))}</button>)}</div></>}
+  </fieldset>;
 }
 
 export function PublicCenterView() {
   const { slug = '' } = useParams();
-  const result = useCenterProfile(slug);
-
-  if (result.status === 'missing') {
-    return <PublicMessage title="Centro no disponible" copy="Revisa el enlace del centro o vuelve al inicio." />;
+  const profile = useCenterProfile(slug);
+  const [service, setService] = useState('');
+  const [professional, setProfessional] = useState('');
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [slot, setSlot] = useState('');
+  const [revision, setRevision] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setSlots([]); setSlot(''); setBusy(false);
+    if (!db || !service || !professional) return;
+    setBusy(true);
+    const client = db;
+    async function loadSlots() {
+      const all: Slot[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error: err } = await client!.rpc('public_availability', { p_slug: slug, p_service: service, p_professional: professional }).range(from, from + 999);
+        if (!active) return;
+        if (err) { setError('No pudimos cargar los horarios.'); setBusy(false); return; }
+        const page = (data ?? []) as Slot[];
+        all.push(...page);
+        if (page.length < 1000) break;
+      }
+      if (active) { setSlots(all); setBusy(false); }
+    }
+    void loadSlots();
+    return () => { active = false; };
+  }, [slug, service, professional, revision]);
+  async function book(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault(); if (!db || !slot) return;
+    const form = new FormData(e.currentTarget); setBusy(true); setError('');
+    const { error: err } = await db.rpc('book_public_appointment', { p_slug: slug, p_service: service, p_professional: professional, p_start: slot, p_name: form.get('name'), p_email: form.get('email'), p_phone: form.get('phone') });
+    setBusy(false);
+    if (err) { setError(err.code === '23P01' || err.code === 'P0001' ? 'Este horario ya no está disponible. Elige otro horario actualizado.' : 'No pudimos reservar. Revisa tus datos e inténtalo de nuevo.'); setRevision(v => v + 1); return; }
+    setConfirmed(true);
   }
-
-  if (result.status === 'unavailable') {
-    return <PublicMessage title="No pudimos cargar el centro" copy="Vuelve a intentarlo en unos momentos." />;
-  }
-
-  return (
-    <div className="public-site" lang="es-CL">
-      <PublicHeader />
-      <main className="public-container public-profile">
-        {result.status === 'ready' ? (
-          <>
-            <h1>{result.profile.name}</h1>
-            <p>{result.profile.description}</p>
-            <p className="public-profile-notice">Las reservas en línea aún no están disponibles.</p>
-            <div className="public-profile-columns">
-              <section>
-                <h2>Servicios</h2>
-                {result.profile.services.length ? (
-                  <ServiceList services={result.profile.services} />
-                ) : <p>El centro aún no tiene servicios disponibles.</p>}
-              </section>
-              <section>
-                <h2>Profesionales</h2>
-                {result.profile.professionals.length ? (
-                  <ul className="public-service-list">
-                    {result.profile.professionals.map(professional => (
-                      <li key={professional.id}>{professional.name}</li>
-                    ))}
-                  </ul>
-                ) : <p>El centro aún no tiene profesionales disponibles.</p>}
-              </section>
-            </div>
-          </>
-        ) : <p role="status">Cargando perfil del centro…</p>}
-      </main>
-    </div>
-  );
+  const disabledReason = busy ? 'Espera mientras procesamos tu solicitud.' : !service ? 'Selecciona un servicio para continuar.' : !professional ? 'Selecciona un profesional para continuar.' : !slot ? 'Selecciona una fecha y hora para continuar.' : '';
+  if (profile.status === 'loading') return <main className="public-page">Cargando centro…</main>;
+  if (profile.status !== 'ready') return <main className="public-page"><h1>Centro no disponible</h1><p>{profile.status === 'missing' ? 'No encontramos este centro.' : 'No pudimos cargar el centro.'}</p></main>;
+  const center = profile.profile;
+  return <div className="public-site" lang="es-CL"><PublicHeader /><main className="public-page">
+    <section className="public-intro"><p className="eyebrow">RESERVA TU ATENCIÓN</p><h1>{center.name}</h1><p>{center.description}</p></section>
+    <div className="booking-grid"><section className="form-card"><h2>Servicios</h2>{center.services.length ? center.services.map(s => <div className="catalog-item" key={s.id}><strong>{s.name}</strong><span>{s.duration_minutes} min · {s.price_clp.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}</span></div>) : <p>No hay servicios disponibles.</p>}
+      <h2>Profesionales</h2>{center.professionals.length ? center.professionals.map(p => <div className="catalog-item" key={p.id}>{p.name}</div>) : <p>No hay profesionales disponibles.</p>}</section>
+      <section className="form-card"><h2>Reserva una hora</h2>{confirmed ? <div className="success notice" role="status"><strong>¡Reserva confirmada!</strong><p>Tu hora quedó registrada para {dateFormat.format(new Date(slot))} a las {timeFormat.format(new Date(slot))}.</p></div> : <form onSubmit={e => void book(e)}>
+        <p>Puedes elegir primero un servicio o un profesional.</p>
+        <label htmlFor="service">Servicio</label><select id="service" required value={service} onChange={e => setService(e.target.value)}><option value="">Selecciona un servicio</option>{center.services.filter(s => !professional || center.professionals.find(p => p.id === professional)?.service_ids.includes(s.id)).map(s => <option value={s.id} key={s.id}>{s.name} · {s.duration_minutes} min</option>)}</select>
+        <label htmlFor="professional">Profesional</label><select id="professional" required value={professional} onChange={e => setProfessional(e.target.value)}><option value="">Selecciona un profesional</option>{center.professionals.filter(p => !service || p.service_ids.includes(service)).map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select>
+        {service && professional && <BookingCalendar slots={slots} selected={slot} onSelect={setSlot} busy={busy} />}
+        <label htmlFor="name">Nombre completo</label><input id="name" name="name" required minLength={2} maxLength={120} />
+        <label htmlFor="email">Correo electrónico</label><input id="email" name="email" type="email" required maxLength={254} />
+        <label htmlFor="phone">Teléfono</label><input id="phone" name="phone" type="tel" required pattern="\+?[0-9 ()-]{7,20}" />
+        {error && <p className="error notice" role="alert">{error}</p>}<span className="booking-submit-wrap" tabIndex={disabledReason ? 0 : undefined} aria-describedby={disabledReason ? "booking-disabled-reason" : undefined}><button className="button booking-submit" disabled={Boolean(disabledReason)}>Confirmar reserva</button>{disabledReason && <span className="booking-disabled-reason" id="booking-disabled-reason" role="tooltip">{disabledReason}</span>}</span>
+      </form>}</section></div></main></div>;
 }

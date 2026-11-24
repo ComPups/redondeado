@@ -15,7 +15,7 @@ type CenterProfile = {
   name: string;
   description: string;
   services: Service[];
-  professionals: { id: string; name: string }[];
+  professionals: { id: string; name: string; service_ids: string[] }[];
 };
 
 type ProfileResult =
@@ -24,7 +24,7 @@ type ProfileResult =
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const publicClient = url && key ? createClient(url, key, {
+export const publicClient = url && key ? createClient(url, key, {
   auth: {
     storageKey: 'redondeado-public',
     persistSession: false,
