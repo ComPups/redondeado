@@ -6,7 +6,7 @@ import { BackofficeLayout } from '../components/BackofficeLayout';
 import { CenterForm } from '../components/CenterForm';
 import { CenterList } from '../components/CenterList';
 
-export function CentersView({ token, onCreated }: { token: string; onCreated: () => void }) {
+export function CentersView({ token, onCreated, onSelect }: { token: string; onCreated: () => void; onSelect: (id: string) => void }) {
   const [centers, setCenters] = useState<Center[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,7 +44,7 @@ export function CentersView({ token, onCreated }: { token: string; onCreated: ()
       {error && <Alert className="notice" variant="danger" role="alert">{error}</Alert>}
       {success && <Alert className="notice" variant="success" role="status">{success}</Alert>}
       <div className={`grid${showForm ? '' : ' grid-list-only'}`}>
-        <CenterList centers={centers} loading={loading} />
+        <CenterList centers={centers} loading={loading} onSelect={onSelect} />
         {showForm && <CenterForm submitting={submitting} onSubmit={handleCreate} onCancel={() => { setShowForm(false); setError(''); }} />}
       </div>
     </BackofficeLayout>
