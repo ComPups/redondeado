@@ -93,7 +93,7 @@ it('filters the service catalog and books with the service owner', async () => {
   expect(booking?.[0]).toContain('/public/centers/arrayan/bookings');
   expect(JSON.parse(booking?.[1].body)).toEqual({
     professional: 'camila', service: 'psychology', start: nextDayStartsAt,
-    name: 'Paciente Demo', email: 'paciente@example.com', phone: '+5695550123', terms: [],
+    name: 'Paciente Demo', email: 'paciente@example.com', phone: '+5695550123', expected_price_clp: 35000, terms: [],
   });
 });
 
@@ -119,11 +119,11 @@ it('shows only the professional’s services and loads a service calendar', asyn
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
-it('groups services with the same name and books the selected professional’s own version', async () => {
+it('groups offerings by center service and books the selected professional’s price', async () => {
   const shared = { ...profile, services: [
-    { ...profile.services[0], id: 'shared-service', professional_id: 'camila', concept_id: 'shared', concept_name: 'Psicología' },
-    { ...profile.services[0], id: 'shared-service', professional_id: 'matias', concept_id: 'shared', concept_name: 'Psicología', name: 'Consulta personalizada', price_clp: 42000, duration_minutes: 45 },
-    { ...profile.services[0], id: 'shared-service', professional_id: 'third', concept_id: 'shared', concept_name: 'Psicología' },
+    { ...profile.services[0], id: 'shared-service', professional_id: 'camila' },
+    { ...profile.services[0], id: 'shared-service', professional_id: 'matias', price_clp: 42000, duration_minutes: 45 },
+    { ...profile.services[0], id: 'shared-service', professional_id: 'third' },
   ], professionals: [
     { id: 'camila', name: 'Camila Rojas', service_ids: ['shared-service'] },
     { id: 'matias', name: 'Matías Soto', service_ids: ['shared-service'] },
@@ -144,10 +144,10 @@ it('groups services with the same name and books the selected professional’s o
 });
 
 
-it('keeps same-named services with different concepts separate', async () => {
+it('keeps different center services separate even when their names match', async () => {
   const separate = { ...profile, services: [
-    { ...profile.services[0], id: 'one', concept_id: 'first' },
-    { ...profile.services[0], id: 'two', concept_id: 'second' },
+    { ...profile.services[0], id: 'one' },
+    { ...profile.services[0], id: 'two' },
   ], professionals: [
     { id: 'camila', name: 'Camila Rojas', service_ids: ['one'] },
     { id: 'matias', name: 'Matías Soto', service_ids: ['two'] },
@@ -155,4 +155,39 @@ it('keeps same-named services with different concepts separate', async () => {
   request.mockImplementation(async () => ({ ok: true, status: 200, json: async () => separate }));
   await openCenter();
   expect(screen.getAllByRole('heading', { name: 'Psicología' })).toHaveLength(2);
+});
+
+
+it('requires patients to refresh and review a changed price before booking', async () => {
+  let updated = false; let bookings = 0;
+  request.mockImplementation(async (url: string, options?: RequestInit) => {
+    if (options?.method === 'POST') { bookings++; return bookings === 1 ? { ok: false, status: 409, json: async () => ({ code: 'PRICE_CHANGED' }) } : { ok: true, status: 201, json: async () => ({ success: true }) }; }
+    if (url.includes('/terms?')) return { ok: true, status: 200, json: async () => [] };
+    if (url.includes('/availability?')) return { ok: true, status: 200, json: async () => [{ starts_at: startsAt }] };
+    return { ok: true, status: 200, json: async () => updated ? { ...profile, services: profile.services.map(s => s.id === 'psychology' ? { ...s, price_clp: 42000 } : s) } : profile };
+  });
+  await openCenter();
+  fireEvent.click(screen.getByRole('button', { name: 'Reservar Psicología' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'Psicología' }));
+  fireEvent.change(dialog.getByRole('combobox', { name: 'Profesional' }), { target: { value: 'camila' } });
+  let calendar = within(await dialog.findByRole('group', { name: 'Elige una fecha y hora' }));
+  fireEvent.click(calendar.getAllByRole('button', { name: /, con horas disponibles$/ })[0]);
+  fireEvent.click(calendar.getByRole('button', { name: /^\d\d:\d\d$/ }));
+  fireEvent.change(dialog.getByLabelText('Nombre completo'), { target: { value: 'Paciente Demo' } });
+  fireEvent.change(dialog.getByLabelText('Correo electrónico'), { target: { value: 'paciente@example.com' } });
+  fireEvent.change(dialog.getByRole('textbox', { name: 'Teléfono' }), { target: { value: '95550123' } });
+  fireEvent.click(dialog.getByRole('button', { name: 'Confirmar reserva' }));
+  expect((await dialog.findByRole('alert')).textContent).toContain('El precio cambió');
+  expect(dialog.getByRole<HTMLButtonElement>('button', { name: 'Confirmar reserva' }).disabled).toBe(true);
+  updated = true;
+  fireEvent.click(dialog.getByRole('button', { name: 'Actualizar precio' }));
+  expect(await dialog.findByText('$42.000')).toBeTruthy();
+  calendar = within(await dialog.findByRole('group', { name: 'Elige una fecha y hora' }));
+  fireEvent.click(calendar.getAllByRole('button', { name: /, con horas disponibles$/ })[0]);
+  fireEvent.click(calendar.getByRole('button', { name: /^\d\d:\d\d$/ }));
+  fireEvent.click(dialog.getByRole('button', { name: 'Confirmar reserva' }));
+  await screen.findByRole('heading', { name: '¡Reserva confirmada!' });
+  const calls = request.mock.calls.filter(([, options]) => options?.method === 'POST');
+  expect(JSON.parse(calls[0][1].body).expected_price_clp).toBe(35000);
+  expect(JSON.parse(calls[1][1].body).expected_price_clp).toBe(42000);
 });

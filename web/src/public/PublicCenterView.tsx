@@ -29,12 +29,12 @@ function CenterPage({ center, slug }: { center: CenterProfile; slug: string }) {
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState<BookingChoice | null>(null);
   const search = searchable(query.trim());
-  const groups = [...center.services.reduce((map, service) => {
-    const key = service.concept_id ?? service.id;
+  const offeringsByService = [...center.services.reduce((map, service) => {
+    const key = service.id;
     map.set(key, [...(map.get(key) ?? []), service]);
     return map;
   }, new Map<string, typeof center.services>()).values()].filter(versions => versions.some(service =>
-    searchable([service.concept_name, service.concept_description, service.name, service.description].join(' ')).includes(search)));
+    searchable([service.name, service.description].join(' ')).includes(search)));
   const professionals = center.professionals.filter(professional =>
     searchable([professional.name, professional.description].join(' ')).includes(search));
 
@@ -82,24 +82,24 @@ function CenterPage({ center, slug }: { center: CenterProfile; slug: string }) {
             }}>
             <Tab eventKey="service" title="Por servicio">
               {searchField('service', 'Buscar servicios', 'Nombre o descripción')}
-              {groups.length ? (
+              {offeringsByService.length ? (
                 <div className="center-card-grid">
-                  {groups.map(versions => {
+                  {offeringsByService.map(versions => {
                     const service = versions[0];
                     const bookable = center.professionals.some(person => versions.some(version => version.professional_id ? version.professional_id === person.id : person.service_ids?.includes(version.id)));
                     const prices = versions.map(version => version.price_clp);
                     const durations = new Set(versions.map(version => version.duration_minutes));
                     return (
                       <article className="center-booking-card" key={service.id}>
-                        <h3>{service.concept_name ?? service.name}</h3>
+                        <h3>{service.name}</h3>
                         <p className="center-service-meta">
                           <strong>{new Set(prices).size > 1 ? 'Desde ' : ''}{formatPrice(Math.min(...prices))}</strong>
                           <span>{durations.size > 1 ? 'Duración variable' : `${service.duration_minutes} min`}</span>
                         </p>
-                        {(service.concept_description ?? service.description) && <p className="center-card-description">{service.concept_description ?? service.description}</p>}
+                        {(service.description) && <p className="center-card-description">{service.description}</p>}
                         {bookable ? (
                           <button type="button" className="public-button public-button-outline"
-                            aria-label={`Reservar ${service.concept_name ?? service.name}`}
+                            aria-label={`Reservar ${service.name}`}
                             onClick={() => setChoice({ kind: 'service', service, versions })}>Reservar <span aria-hidden="true">→</span></button>
                         ) : <p className="center-card-unavailable">Sin profesionales disponibles para reservar.</p>}
                       </article>
