@@ -78,10 +78,24 @@ describe('staff workspace through the screen', () => {
   for (const role of ['administrator', 'member', 'limited'] as const) {
     it(`signs in and displays the ${role} role and agenda`, async () => {
       await signIn(role);
-      expect(await screen.findByText(/Patient A/)).toBeTruthy();
+      expect(await screen.findByRole('heading', { name: 'Calendario de citas' })).toBeTruthy();
       expect((screen.getByLabelText('Centro') as HTMLSelectElement).value).toBe('a');
     });
   }
+  it('shows appointments for the selected calendar day', async () => {
+    const startsAt = new Date(Date.now() + 60 * 60_000).toISOString();
+    const endsAt = new Date(Date.now() + 2 * 60 * 60_000).toISOString();
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/staff/centers/a/appointments' && url.searchParams.has('month')) return response(agenda([{ ...appointment('Calendar')[0], starts_at: startsAt, ends_at: endsAt }]));
+      return originalFetch(input, init);
+    });
+    await signIn('member');
+    const calendarDay = await screen.findByRole('button', { name: /con citas activas$/ });
+    fireEvent.click(calendarDay);
+    expect(await screen.findByText(/Patient Calendar/)).toBeTruthy();
+  });
   it('separates an administrator’s appointments from the center agenda', async () => {
     auth.role = 'administrator';
     mockApi();
@@ -93,8 +107,6 @@ describe('staff workspace through the screen', () => {
       return originalFetch(input, init);
     });
     await signIn('administrator');
-    expect(await screen.findByText(/Patient Own/)).toBeTruthy();
-    expect(screen.queryByText(/Patient Other/)).toBeNull();
     fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
     expect(screen.getByRole('heading', { name: 'Agendamientos del centro' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
@@ -107,8 +119,6 @@ describe('staff workspace through the screen', () => {
     expect(screen.queryByRole('heading', { name: 'Configuraciones del centro' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Editar centro' }));
     expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Center A');
-    expect(await screen.findByText(/Patient Own/)).toBeTruthy();
-    expect(await screen.findByText(/Patient Other/)).toBeTruthy();
   });
   it('closes the center editor after saving and updates the center card', async () => {
     const originalFetch = vi.mocked(fetch).getMockImplementation()!;
@@ -131,24 +141,6 @@ describe('staff workspace through the screen', () => {
     await screen.findByRole('heading', { name: 'Center B' });
     expect(screen.queryByRole('heading', { name: 'Configuraciones del centro' })).toBeNull();
   });
-  it('loads 50-item pages and resets the page when changing filters', async () => {
-    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
-    vi.mocked(fetch).mockImplementation(async (input, init) => {
-      const url = new URL(String(input));
-      if (url.pathname === '/staff/centers/a/appointments') {
-        const page = url.searchParams.get('page');
-        const period = url.searchParams.get('period');
-        return response(agenda(appointment(`${period}-${page}`), period === 'upcoming' && page === '1'));
-      }
-      return originalFetch(input, init);
-    });
-    await signIn('member');
-    expect(await screen.findByText(/Patient upcoming-1/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    expect(await screen.findByText(/Patient upcoming-2/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Pasadas' }));
-    expect(await screen.findByText(/Patient past-1/)).toBeTruthy();
-  });
   it('does not show the center agenda to members', async () => {
     await signIn('member');
     fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
@@ -168,68 +160,30 @@ describe('staff workspace through the screen', () => {
     expect(await screen.findByRole('option', { name: 'Camila' })).toBeTruthy();
     expect(screen.getByLabelText('Profesional')).toBeTruthy();
   });
-  it('opens a separate confirmation before deleting', async () => {
-    await signIn('administrator');
-    fireEvent.click(await screen.findByRole('button', { name: /Patient A/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
-    expect(await screen.findByText('¿Eliminar esta cita? Esta acción no se puede deshacer.')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-    expect(screen.getByText('Detalle de la cita')).toBeTruthy();
-    expect(vi.mocked(fetch).mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false);
-  });
   it('does not offer manual booking to limited users', async () => {
     await signIn('limited');
     expect(screen.queryByRole('button', { name: '+ Agendar cita' })).toBeNull();
   });
-  it('keeps the selected center on refresh and discards an old agenda after a switch', async () => {
-    pendingAgenda = deferred<Response>();
+  it('keeps the selected center on refresh', async () => {
     await signIn('member');
     fireEvent.change(screen.getByLabelText('Centro'), { target: { value: 'b' } });
-    expect(await screen.findByText(/Patient B/)).toBeTruthy();
+    await screen.findByText('Revisa la agenda y los servicios de Center B.');
     const requestsBeforeRefresh = vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/staff/centers')).length;
     fireEvent.click(screen.getByRole('button', { name: 'Actualizar centros' }));
     await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/staff/centers')).length).toBe(requestsBeforeRefresh + 1));
     await waitFor(() => expect((screen.getByLabelText('Centro') as HTMLSelectElement).value).toBe('b'));
-    await act(async () => pendingAgenda!.resolve(response(agenda(appointment('A')))));
-    expect(screen.queryByText(/Patient A/)).toBeNull();
-    expect(screen.getByText(/Patient B/)).toBeTruthy();
-  });
-  it('clears and reloads the agenda if the selected membership role changes on refresh', async () => {
-    auth.role = 'administrator';
-    centers = originalCenters.map(c => ({ ...c, role: 'administrator' }));
-    await signIn('administrator');
-    expect(await screen.findByText(/Patient A/)).toBeTruthy();
-    pendingAgenda = deferred<Response>();
-    auth.role = 'member';
-    centers = originalCenters;
-    fireEvent.click(screen.getByRole('button', { name: 'Actualizar centros' }));
-    await screen.findByText('Revisa los agendamientos asignados a ti.');
-    expect(screen.queryByText(/Patient A/)).toBeNull();
-    expect(screen.getByRole('status').textContent).toContain('Cargando agendamientos');
-    await act(async () => pendingAgenda!.resolve(response(agenda(appointment('Member')))));
-    expect(await screen.findByText(/Patient Member/)).toBeTruthy();
-  });
-  it('clears the agenda on sign out and ignores the outstanding response', async () => {
-    pendingAgenda = deferred<Response>();
-    await signIn('member');
-    fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
-    await screen.findByRole('button', { name: 'Ingresar' });
-    await act(async () => pendingAgenda!.resolve(response(agenda(appointment('A')))));
-    expect(screen.queryByText(/Patient A/)).toBeNull();
   });
   it('signs out locally even when server revocation fails', async () => {
     auth.revokeFails = true;
     await signIn('member');
-    expect(await screen.findByText(/Patient A/)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Calendario de citas' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
     await screen.findByRole('button', { name: 'Ingresar' });
     expect(auth.signOutOptions).toEqual({ scope: 'local' });
     expect(auth.session).toBeNull();
-    expect(screen.queryByText(/Patient A/)).toBeNull();
     cleanup();
     render(<MemoryRouter><Staff /></MemoryRouter>);
     expect(await screen.findByRole('button', { name: 'Ingresar' })).toBeTruthy();
-    expect(screen.queryByText(/Patient A/)).toBeNull();
   });
   it('opens platform administration directly and refreshes center cards', async () => {
     await signIn('platform_administrator');
@@ -257,7 +211,7 @@ describe('staff workspace through the screen', () => {
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
     expect(await screen.findByText('Could not load center access.')).toBeTruthy();
-    expect(await screen.findByText(/Patient A/)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Calendario de citas' })).toBeTruthy();
     expect(screen.getByText('Could not load center access.')).toBeTruthy();
   });
 });

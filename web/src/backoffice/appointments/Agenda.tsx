@@ -1,6 +1,6 @@
 import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
 import { apiFetch } from '../../shared/requestCache';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Button, Modal } from 'react-bootstrap';
 import { NewAppointment } from './NewAppointment';
 
@@ -8,6 +8,13 @@ export type Appointment = { id: string; professional_user_id: string; service_na
 const santiagoParts = (date: Date) => Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date).map(part => [part.type, part.value]));
 const localInput = (value: string) => { const p = santiagoParts(new Date(value)); return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`; };
 const format = (value: string) => new Date(value).toLocaleString('es-CL', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Santiago' });
+const dateKey = (value: Date | string) => {
+  const parts = santiagoParts(new Date(value));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+const monthKey = (value: Date) => `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}`;
+const monthLabel = new Intl.DateTimeFormat('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const dateLabel = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 // Convert a Santiago wall time to an instant, checking daylight-saving transitions.
 function santiagoInstant(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
@@ -24,35 +31,45 @@ function santiagoInstant(value: string): Date | null {
 }
 
 export function Agenda({ role, token, centerId, apiUrl, scope = 'personal' }: { role: string; token: string; centerId: string; apiUrl: string; scope?: 'personal' | 'center' }) {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const [creating, setCreating] = useState(false);
-  const [past, setPast] = useState(false);
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = santiagoParts(new Date());
+    return new Date(Date.UTC(Number(today.year), Number(today.month) - 1, 1));
+  });
+  const [calendarAppointments, setCalendarAppointments] = useState<Appointment[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [calendarError, setCalendarError] = useState('');
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError(''); setAppointments([]); setHasMore(false);
-    const query = new URLSearchParams({ scope, period: past ? 'past' : 'upcoming', page: String(page) });
+    setCalendarLoading(true); setCalendarError(''); setCalendarAppointments([]); setSelectedDay(null);
+    const query = new URLSearchParams({ scope, month: monthKey(calendarMonth) });
     apiFetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments?${query}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error(); return response.json(); })
-      .then((result: { appointments: Appointment[]; has_more: boolean }) => {
-        if (controller.signal.aborted) return;
-        if (!result.appointments.length && page > 1) { setPage(page - 1); return; }
-        setAppointments(result.appointments); setHasMore(result.has_more); setLoading(false);
-      })
-      .catch(() => { if (!controller.signal.aborted) { setError('No se pudieron cargar los agendamientos.'); setLoading(false); } });
+      .then((result: { appointments: Appointment[] }) => { if (!controller.signal.aborted) { setCalendarAppointments(result.appointments); setCalendarLoading(false); } })
+      .catch(() => { if (!controller.signal.aborted) { setCalendarError('No se pudo cargar el calendario.'); setCalendarLoading(false); } });
     return () => controller.abort();
-  }, [apiUrl, centerId, token, scope, past, page, revision]);
+  }, [apiUrl, centerId, token, scope, calendarMonth, revision]);
   const refresh = () => setRevision(value => value + 1);
-  const visible = appointments;
+  const appointmentsByDay = useMemo(() => {
+    const byDay = new Map<string, Appointment[]>();
+    calendarAppointments.forEach(appointment => {
+      const key = dateKey(appointment.starts_at);
+      byDay.set(key, [...(byDay.get(key) ?? []), appointment]);
+    });
+    return byDay;
+  }, [calendarAppointments]);
+  const firstCalendarDay = useMemo(() => new Date(Date.UTC(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth(), 1)), [calendarMonth]);
+  const lastCalendarDay = useMemo(() => new Date(Date.UTC(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth() + 1, 0)), [calendarMonth]);
+  const calendarDays = useMemo(() => Array.from({ length: lastCalendarDay.getUTCDate() }, (_, index) => new Date(Date.UTC(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth(), index + 1))), [calendarMonth, lastCalendarDay]);
+  const today = dateKey(new Date());
+  const selectedAppointments = selectedDay ? appointmentsByDay.get(selectedDay) ?? [] : [];
   function close() { setSelected(null); setEditing(false); setMessage(''); setConfirmDelete(false); }
   async function request(method: string, body?: unknown) {
     setBusy(true); setMessage('');
@@ -71,10 +88,12 @@ export function Agenda({ role, token, centerId, apiUrl, scope = 'personal' }: { 
     const duration = Date.parse(selected!.ends_at) - Date.parse(selected!.starts_at);
     void request('PATCH', { patient_name: form.get('patient_name'), patient_email: form.get('patient_email'), patient_phone: form.get('patient_phone'), starts_at: start.toISOString(), ends_at: new Date(start.getTime() + duration).toISOString() });
   }
-  return <section className="staff-section" id="agendamientos"><div className="section-heading"><div><p className="eyebrow">{scope === 'center' ? 'AGENDA DEL CENTRO' : 'TU AGENDA'}</p><h2>{scope === 'center' ? 'Agendamientos del centro' : 'Agendamientos'}</h2><p>{scope === 'center' ? 'Revisa los agendamientos de tu centro.' : 'Revisa los agendamientos asignados a ti.'}</p></div><div className="agenda-actions"><span className="count">{visible.length} en esta página</span>{role !== 'limited' && <Button className="button-primary" onClick={() => setCreating(true)}>+ Agendar cita</Button>}</div></div>
-    <div className="agenda-filters" aria-label="Filtrar citas"><button type="button" aria-pressed={!past} onClick={() => { setPage(1); setPast(false); }}>Próximas</button><button type="button" aria-pressed={past} onClick={() => { setPage(1); setPast(true); }}>Pasadas</button></div>
-    {loading ? <LoadingSkeleton label="Cargando agendamientos…" /> : error ? <p role="alert">{error} <button onClick={refresh}>Reintentar</button></p> : visible.length ? <ul className="agenda-list">{visible.map(a => <li key={a.id}><button type="button" onClick={() => { setSelected(a); setMessage(''); }}><strong>{format(a.starts_at)}</strong> · {a.service_name} · {a.patient_name}{a.professional_name && <> · {a.professional_name}</>}</button></li>)}</ul> : <p>{past ? 'No hay citas pasadas.' : 'No hay citas próximas.'}</p>}
-    {!loading && !error && (page > 1 || hasMore) && <nav className="agenda-pagination" aria-label="Páginas de agendamientos"><Button variant="outline-secondary" disabled={page === 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span>Página {page}</span><Button variant="outline-secondary" disabled={!hasMore} onClick={() => setPage(value => value + 1)}>Siguiente</Button></nav>}
+  return <section className="staff-section" id="agendamientos"><div className="section-heading"><div><p className="eyebrow">{scope === 'center' ? 'AGENDA DEL CENTRO' : 'TU AGENDA'}</p><h2>{scope === 'center' ? 'Agendamientos del centro' : 'Agendamientos'}</h2><p>{scope === 'center' ? 'Revisa los agendamientos de tu centro.' : 'Revisa los agendamientos asignados a ti.'}</p></div><div className="agenda-actions">{role !== 'limited' && <Button className="button-primary" onClick={() => setCreating(true)}>+ Agendar cita</Button>}</div></div>
+    <section className="agenda-calendar" aria-labelledby="agenda-calendar-heading"><div className="agenda-calendar-heading"><div><h3 id="agenda-calendar-heading">Calendario de citas</h3><p>Verde: citas activas · gris: citas pasadas.</p></div><div className="agenda-calendar-legend" aria-label="Leyenda"><span className="active">Activa</span><span className="past">Pasada</span><span className="clear">Libre</span></div></div>
+      <div className="agenda-calendar-navigation"><button type="button" aria-label="Mes anterior" onClick={() => setCalendarMonth(value => new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() - 1, 1)))}>‹</button><strong aria-live="polite">{monthLabel.format(calendarMonth)}</strong><button type="button" aria-label="Mes siguiente" onClick={() => setCalendarMonth(value => new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + 1, 1)))}>›</button></div>
+      {calendarLoading ? <p className="agenda-calendar-loading" aria-live="polite">Cargando calendario…</p> : calendarError ? <p role="alert">{calendarError} <button type="button" onClick={refresh}>Reintentar</button></p> : <div className="agenda-calendar-grid" aria-label="Calendario de citas">{['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'].map(day => <span key={day}>{day}</span>)}{Array.from({ length: (firstCalendarDay.getUTCDay() + 6) % 7 }, (_, index) => <i key={`empty-${index}`} aria-hidden="true" />)}{calendarDays.map(day => { const key = day.toISOString().slice(0, 10); const dayAppointments = appointmentsByDay.get(key) ?? []; const active = dayAppointments.some(appointment => new Date(appointment.ends_at) > new Date()); const pastDay = key < today; const status = active ? 'active' : dayAppointments.length ? 'past' : pastDay ? 'empty-past' : 'clear'; const label = active ? 'con citas activas' : dayAppointments.length ? 'con citas pasadas' : pastDay ? 'sin citas, día pasado' : 'sin citas'; return <button type="button" key={key} className={`agenda-calendar-day ${status}${selectedDay === key ? ' selected' : ''}`} aria-label={`${dateLabel.format(day)}, ${label}`} aria-pressed={selectedDay === key} onClick={() => setSelectedDay(value => value === key ? null : key)}>{day.getUTCDate()}</button>; })}</div>}
+      {selectedDay && <div className="agenda-day-details" aria-live="polite"><strong>{dateLabel.format(new Date(`${selectedDay}T00:00:00Z`))}</strong>{selectedAppointments.length ? <ul className="agenda-list">{selectedAppointments.map(appointment => <li key={appointment.id}><button type="button" onClick={() => { setSelected(appointment); setMessage(''); }}><span className="appointment-row appointment-time">{format(appointment.starts_at)}</span>{appointment.professional_name && <span className="appointment-row appointment-professional"><small>Profesional</small>{appointment.professional_name}</span>}<span className="appointment-row"><small>Paciente</small>{appointment.patient_name}</span><span className="appointment-row"><small>Motivo</small>{appointment.service_name}</span></button></li>)}</ul> : <p>No hay citas este día.</p>}</div>}
+    </section>
     <NewAppointment scope={scope} show={creating} onClose={() => setCreating(false)} onCreated={refresh} centerId={centerId} token={token} apiUrl={apiUrl} />
     <Modal show={!!selected} onHide={close} enforceFocus={!confirmDelete} centered><Modal.Header closeButton><Modal.Title>Detalle de la cita</Modal.Title></Modal.Header>{selected && <><Modal.Body>
       {message && <p role="alert">{message}</p>}
