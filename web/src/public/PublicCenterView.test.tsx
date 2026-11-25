@@ -31,6 +31,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', request);
   request.mockImplementation(async (url: string, options?: RequestInit) => {
     if (options?.method === 'POST') return { ok: true, status: 201, json: async () => ({ success: true }) };
+    if (url.includes('/terms?')) return { ok: true, status: 200, json: async () => [] };
     if (url.includes('/availability?')) return { ok: true, status: 200, json: async () => [{ starts_at: startsAt }, { starts_at: nextDayStartsAt }] };
     return { ok: true, status: 200, json: async () => profile };
   });
@@ -99,7 +100,7 @@ it('filters the service catalog and books after choosing any center professional
   expect(booking?.[0]).toContain('/public/centers/arrayan/bookings');
   expect(JSON.parse(booking?.[1].body)).toEqual({
     professional: 'camila', service: 'psychology', start: startsAt,
-    name: 'Paciente Demo', email: 'paciente@example.com', phone: '+5695550123',
+    name: 'Paciente Demo', email: 'paciente@example.com', phone: '+5695550123', terms: [],
   });
 });
 
