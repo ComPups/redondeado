@@ -1,16 +1,17 @@
 // Run with node --import tsx test/center-settings.mjs against seeded local Supabase.
 import assert from 'node:assert/strict';
 import express from 'express';
-import pg from 'pg';
 import { createClient } from '@supabase/supabase-js';
 import { createDatabase } from '../src/db.ts';
 import { authenticateStaff } from '../src/middleware/auth.ts';
+import { publicRoutes } from '../src/routes/public.ts';
 import { staffRoutes } from '../src/routes/staff.ts';
 
 const { SUPABASE_URL: url, SUPABASE_PUBLISHABLE_KEY: key, DATABASE_URL: databaseUrl } = process.env;
 if (!url || !key || !databaseUrl) throw Error('Set local SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and DATABASE_URL');
 const db = createDatabase({ connectionString: databaseUrl, max: 2, connectionTimeoutMillis: 5000, ssl: false }, 15000);
 const app = express(); app.use(express.json());
+app.use('/public', publicRoutes(db));
 app.use('/staff', authenticateStaff(url, key, db), staffRoutes);
 const server = app.listen(0, '127.0.0.1');
 await new Promise(resolve => server.once('listening', resolve));
@@ -42,12 +43,7 @@ try {
   assert.equal((await request('/staff/centers/10000000-0000-4000-8000-000000000099', admin, 'PATCH', original)).status, 403);
   const saved = await request(path, admin, 'PATCH', { name: ' Centro editado ', description: 'a'.repeat(400), opens_at: '08:30', closes_at: '19:00' });
   assert.equal(saved.status, 200); assert.equal((await saved.json()).slug, current.slug);
-  // The local migration login can call the projection directly; deployed API
-  // public transactions instead use the separately provisioned runtime login.
-  const verifier = new pg.Client({ connectionString: databaseUrl, ssl: false });
-  let profile;
-  try { await verifier.connect(); profile = (await verifier.query('select public.public_center_profile($1) as profile', [current.slug])).rows[0].profile; }
-  finally { await verifier.end(); }
+  const profile = await (await fetch(`${api}/public/centers/${current.slug}`)).json();
   assert.equal(profile.name, 'Centro editado'); assert.equal(profile.description.length, 400); assert.equal(profile.opens_at, '08:30:00'); assert.equal(profile.closes_at, '19:00:00');
   console.log('Center settings HTTP authorization, validation and public persistence checks passed');
 } finally {
