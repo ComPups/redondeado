@@ -5,6 +5,7 @@ A booking site and staff backoffice for the Encuadrado application process.
 ## Prerequisites
 
 - Node.js 22.13 or later and npm.
+- The `psql` command-line client for configuring the local database login.
 - Registry access for installing dependencies.
 - For the local database: Docker Desktop running and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started). On macOS with Homebrew, install the CLI with `brew install supabase/tap/supabase`.
 
@@ -26,29 +27,48 @@ supabase start
 supabase status
 ```
 
-The first start downloads the service images. The CLI prints the local API and Auth URL (`http://127.0.0.1:54321`), the Postgres connection on port `54322`, and [Studio](http://127.0.0.1:54323). Use `supabase stop` when you are done. This setup runs independently of the application scaffold while the database schema and demo accounts are being built.
+The first start downloads the service images and applies the migrations and local demo seed. The CLI prints the local Auth URL (`http://127.0.0.1:54321`), the Postgres connection on port `54322`, and [Studio](http://127.0.0.1:54323). Use `supabase stop` when you are done.
 
-The hosted demo will use the same migrations in a separate Supabase project. Verify migrations locally before using the [hosted migration workflow](https://supabase.com/docs/guides/deployment/database-migrations). Keep project credentials in local environment files and use fictional patient and staff data for the demo.
+The API uses Postgres directly with transaction-scoped roles and RLS; Supabase Auth still handles staff sign-in and token verification. Local PostgREST is disabled in `supabase/config.toml`. This does not change the hosted Data API setting. Hosted migrations and rollout are described in [database migration and rollout](api/DATABASE-MIGRATION.md).
+
 
 ## Run locally
 
-Each application has its own dependencies and lockfile. In two terminals, run:
+The migrations create a restricted Postgres login named `redondeado_api` without a password. Set a local-only password before starting the API. Connect as the local database administrator using the connection shown by `supabase status`, then run the interactive password command:
 
 ```sh
-cd api
-npm ci
-cp .env.example .env
-npm run dev
+psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
 ```
+
+```sql
+\password redondeado_api
+```
+
+Exit `psql` with `\q`. Use a password suitable only for local development. A local `supabase db reset` recreates the role, so set its password again after a reset.
+
+Each application has its own dependencies and environment file:
 
 ```sh
-cd web
-npm ci
-cp .env.example .env
-npm run dev
+
+npm --prefix api ci
+npm --prefix web ci
+cp api/.env.example api/.env
+cp web/.env.example web/.env
 ```
 
-Set `SUPABASE_PUBLISHABLE_KEY` in `api/.env` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `web/.env` to the local publishable (or anon) key shown by `supabase status`. Configure the dedicated runtime role and `DATABASE_URL` as described in [database migration and rollout](api/DATABASE-MIGRATION.md); keep the database credential server-side. Open the landing page at http://localhost:5173/, the demo center profile at http://localhost:5173/centro-bienestar-arrayan, and staff sign-in at http://localhost:5173/staff/login. Signed-out staff routes redirect to sign-in. The frontend defaults to port 5173, which the API allows by default. For a second worktree, use the alternate-port commands below. Restart local Supabase after changing its Auth configuration.
+In `api/.env`, set `SUPABASE_PUBLISHABLE_KEY` to the local publishable (or anon) key shown by `supabase status`, and replace the password in `DATABASE_URL` with the one just set for `redondeado_api`. Percent-encode any URL-special characters in the password. Keep `DB_SSL_MODE=disable` for the local database. In `web/.env`, set `VITE_SUPABASE_PUBLISHABLE_KEY` to the same key. Keep the database URL and password server-side; never put them in a `VITE_` variable.
+
+Start the API and web app in separate terminals:
+```sh
+
+npm --prefix api run dev
+npm --prefix web run dev
+```
+
+Open the landing page at http://localhost:5173/, the demo center at http://localhost:5173/centro-bienestar-arrayan, or staff sign-in at http://localhost:5173/staff/login. The API defaults to port 3000. For another worktree, use the alternate-port commands below.
+
+To connect to a hosted Supabase project, configure its Auth URL, publishable key, restricted runtime database URL, and verified TLS certificate in the local environment files. Use separate credentials for migrations; see [database migration and rollout](api/DATABASE-MIGRATION.md) for the connection settings and deployment order.
+
 
 The staff interface supports sign-in, center selection, a role-scoped appointment agenda with contact details, manual booking, editing, rescheduling and deletion. Administrators can book for center professionals; members can book for themselves, and limited users have read-only access. Manual bookings use the public booking availability and validation rules. Center administrators see their center's appointments; members and limited staff see their own. Platform administrators can create centers and edit center, service, appointment, profile and membership records across centers. The platform editor is an initial JSON-based interface; changes remain subject to database constraints. The public profile lets patients book in the current and next calendar months in America/Santiago, with start times every 30 minutes during center hours. Center administrators manage the shared service catalog. Professionals choose which services to offer and set their own prices and durations; removing an offering does not affect colleagues. Bookings retain the agreed price, service name and duration. [COM-11](https://linear.app/compups/issue/COM-11) and [COM-12](https://linear.app/compups/issue/COM-12) will add settings and fuller appointment management. The `staff` slug is reserved for staff routes. Production hosting must rewrite frontend paths to `index.html` for direct navigation and refresh.
 
@@ -65,7 +85,8 @@ A local `supabase db reset` applies the migrations and seeds the fictional Centr
 | Valentina Muñoz | valentina.munoz@example.com | Limited |
 | Platform administrator | plataforma@example.com | Platform administrator (all centers) |
 
-These credentials are public and only for local development; do not use this seed for a production project. The authenticated user's rows in `center_memberships` provide the center ID and role for server-side authorization. A user can belong to multiple centers, so the server must select a center from those rows and check its role for each request. Staff professional IDs and display names are public; profile Auth user IDs, account email, and membership administration are not public. Signed-in staff can read their own Auth user ID in their memberships. Public queries on `staff_profiles` must select `professional_id` and `display_name` explicitly. Memberships continue to use the Auth user ID for authorization. The API checks membership for the requested center on each protected request.
+These credentials are public and only for development; do not use this seed for a production project. The authenticated user's rows in `center_memberships` provide the center ID and role for server-side authorization. A user can belong to multiple centers, so the server must select a center from those rows and check its role for each request. Staff professional IDs and display names are public; profile Auth user IDs, account email, and membership administration are not public. Signed-in staff can read their own Auth user ID in their memberships. Public queries on `staff_profiles` must select `professional_id` and `display_name` explicitly. Memberships continue to use the Auth user ID for authorization. The API checks membership for the requested center on each protected request.
+
 
 The demo center is open daily from 09:00 to 18:00 in `America/Santiago`, with three services priced in CLP and three fictional appointments. Appointments fall in the current month and can be in the past near month-end. Existing bookings retain their service name and end time when a service changes; deactivate services to remove them from the catalog. The database prevents overlapping appointments for the same professional, including across centers.
 
