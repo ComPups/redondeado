@@ -67,6 +67,8 @@ npm --prefix web run dev
 
 Open the landing page at http://localhost:5173/, the demo center at http://localhost:5173/centro-bienestar-arrayan, or staff sign-in at http://localhost:5173/staff/login. The API defaults to port 3000. For another worktree, use the alternate-port commands below.
 
+To run the frontend against the production API, use `npm --prefix web run dev:prod` and open http://localhost:5173/centro-bienestar-arrayan. Vite proxies `/api` requests to production; no local API is needed. For staff sign-in, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the production project's URL and publishable key in `web/.env.local`. This command uses production data, and actions can change it. Use only a publishable (or legacy anon) key in frontend environment files, never a secret or service-role key.
+
 To connect to a hosted Supabase project, configure its Auth URL, publishable key, restricted runtime database URL, and verified TLS certificate in the local environment files. Use separate credentials for migrations; see [database migration and rollout](api/DATABASE-MIGRATION.md) for the connection settings and deployment order.
 
 
