@@ -4,7 +4,8 @@ import type { PoolClient } from 'pg';
 import { requireCenterAccess } from '../middleware/centerAccess.js';
 
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-const roles = ['administrator', 'member', 'limited'];
+const assignableRoles = ['administrator', 'member'];
+const membershipRoles = [...assignableRoles, 'limited'];
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type Member = { user_id: string; display_name: string; role: string; active: boolean; upcoming_appointments: number; services: string[] };
 type QueryError = { code?: string; message?: string };
@@ -28,6 +29,9 @@ async function members(client: PoolClient, centerId: string, userId?: string): P
 }
 export async function updateMember(res: Response, centerId: string, userId: string, role: string, active: boolean | null) {
   return transaction(res, async client => {
+    const current = await client.query('select role from public.center_memberships where center_id=$1 and user_id=$2 for update', [centerId, userId]);
+    if (!current.rowCount) { const error = new Error('Membership not found') as Error & { code: string }; error.code = 'P0002'; throw error; }
+    if (!assignableRoles.includes(role) && !(role === 'limited' && current.rows[0].role === 'limited')) { const error = new Error('Invalid role') as Error & { code: string }; error.code = '22023'; throw error; }
     const result = await client.query(`update public.center_memberships set role=$1, active=coalesce($2::boolean,active) where center_id=$3 and user_id=$4 returning user_id,role,active`, [role, active, centerId, userId]);
     if (!result.rowCount) { const error = new Error('Membership not found') as Error & { code: string }; error.code = 'P0002'; throw error; }
     return result.rows[0];
@@ -75,7 +79,7 @@ export function teamRoutes(url: string, secret: string | undefined, _webOrigin: 
   router.post('/centers/:centerId/team/members', async (req, res) => {
     const { email, password, display_name, role = 'member', service_ids = [] } = req.body ?? {};
     const requestId = req.get('idempotency-key');
-    if (!uuid(requestId) || typeof email !== 'string' || email.length > 254 || !emailPattern.test(email.trim()) || typeof password !== 'string' || password.length < 8 || password.length > 128 || typeof display_name !== 'string' || display_name.trim().length < 2 || display_name.trim().length > 120 || !roles.includes(role) || !Array.isArray(service_ids) || service_ids.length > 100 || !service_ids.every(uuid)) { res.status(400).json({ error: 'Revisa nombre, correo, contraseña, rol y servicios.' }); return; }
+    if (!uuid(requestId) || typeof email !== 'string' || email.length > 254 || !emailPattern.test(email.trim()) || typeof password !== 'string' || password.length < 8 || password.length > 128 || typeof display_name !== 'string' || display_name.trim().length < 2 || display_name.trim().length > 120 || !assignableRoles.includes(role) || !Array.isArray(service_ids) || service_ids.length > 100 || !service_ids.every(uuid)) { res.status(400).json({ error: 'Revisa nombre, correo, contraseña, rol y servicios.' }); return; }
     if (!admin) { res.status(503).json({ error: 'La administración de cuentas no está configurada.' }); return; }
     const normalizedEmail = email.trim().toLowerCase();
     try {
@@ -121,7 +125,7 @@ export function teamRoutes(url: string, secret: string | undefined, _webOrigin: 
     } catch (error) { failure(res, error); }
   });
   router.patch('/centers/:centerId/team/members/:id', async (req, res) => {
-    if (!uuid(req.params.id) || !roles.includes(req.body?.role) || typeof req.body?.active !== 'boolean' || Object.keys(req.body).some(key => !['role', 'active'].includes(key))) { res.status(400).json({ error: 'Rol o estado inválido.' }); return; }
+    if (!uuid(req.params.id) || !membershipRoles.includes(req.body?.role) || typeof req.body?.active !== 'boolean' || Object.keys(req.body).some(key => !['role', 'active'].includes(key))) { res.status(400).json({ error: 'Rol o estado inválido.' }); return; }
     try { res.json(await updateMember(res, req.params.centerId, req.params.id, req.body.role, req.body.active)); }
     catch (error) { failure(res, error); }
   });
