@@ -1,4 +1,6 @@
 begin;
+-- Keep these scenarios independent of the demo terms in seed.sql.
+delete from public.booking_terms_current where center_id = '10000000-0000-4000-8000-000000000001';
 create extension if not exists pgtap with schema extensions;
 select plan(23);
 -- Verify the catalog works for an existing center with no legacy assignments.
@@ -11,7 +13,7 @@ insert into public.services (id, center_id, name, price_clp, duration_minutes, a
   ('70000000-0000-4000-8000-000000000099', '10000000-0000-4000-8000-000000000099', 'Other Service', 1000, 30, true);
 select ok(not has_function_privilege('anon', 'public.public_center_profile(text)', 'execute'), 'anonymous clients cannot call profile directly');
 select ok(not has_function_privilege('anon', 'public.public_availability(text,uuid,uuid)', 'execute'), 'anonymous clients cannot call availability directly');
-select ok(not has_function_privilege('authenticated', 'public.book_public_appointment(text,uuid,uuid,timestamptz,text,text,text)', 'execute'), 'authenticated clients cannot call booking directly');
+select ok(not has_function_privilege('authenticated', 'public.book_public_appointment(text,uuid,uuid,timestamptz,text,text,text,uuid[])', 'execute'), 'authenticated clients cannot call booking directly');
 set local role service_role;
 select is(public.public_center_profile('centro-bienestar-arrayan')->>'name', 'Centro Bienestar Arrayán', 'public profile is available by slug');
 select is(public.public_center_profile('centro-bienestar-arrayan')->>'opens_at', '09:00:00', 'public profile includes opening hours');

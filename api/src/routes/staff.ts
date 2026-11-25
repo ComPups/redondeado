@@ -134,3 +134,29 @@ router.post('/centers/:centerId/appointments', async (req, res) => {
   }
   res.status(201).json({ id: data });
 });
+const termsScope = (scope: string) => scope === 'center' ? null : scope;
+const validTermsScope = (scope: string) => scope === 'center' || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scope);
+
+router.get('/centers/:centerId/terms', async (req, res) => {
+  const { data, error } = await res.locals.staff.db.rpc('staff_booking_terms', { p_center: req.params.centerId });
+  if (error) { res.status(500).json({ error: 'Could not load terms' }); return; }
+  res.json(data);
+});
+
+async function writeTerms(req: import('express').Request, res: import('express').Response, withdraw: boolean) {
+  const scope = req.params.scope as string;
+  if (res.locals.role === 'limited') { res.status(403).json({ error: 'Read-only access' }); return; }
+  if (!validTermsScope(scope)) { res.status(400).json({ error: 'Invalid service' }); return; }
+  if (scope === 'center' && res.locals.role !== 'administrator') { res.status(403).json({ error: 'Center administrator required' }); return; }
+  const body = withdraw ? null : req.body?.body;
+  if (!withdraw && (typeof body !== 'string' || !body.trim() || body.length > 30000)) { res.status(400).json({ error: 'Invalid terms' }); return; }
+  const { data, error } = await res.locals.staff.db.rpc('manage_booking_terms', { p_center: req.params.centerId, p_service: termsScope(scope), p_body: body });
+  if (error) { res.status(error.code === '42501' ? 403 : error.code === '22023' ? 400 : 500).json({ error: 'Could not update terms' }); return; }
+  if (withdraw) { res.status(204).end(); return; }
+  res.status(req.method === 'POST' ? 201 : 200).json({ id: data, service_id: termsScope(scope), body });
+}
+
+// Publishing creates a new immutable version; withdrawal keeps prior acceptances.
+router.post('/centers/:centerId/terms/:scope', (req, res) => void writeTerms(req, res, false));
+router.put('/centers/:centerId/terms/:scope', (req, res) => void writeTerms(req, res, false));
+router.delete('/centers/:centerId/terms/:scope', (req, res) => void writeTerms(req, res, true));

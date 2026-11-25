@@ -520,4 +520,69 @@
   .center-hero { grid-template-columns: 1fr; gap: 1.75rem; }
   .center-hero h1 { text-wrap: initial; }
   .center-hero-image { max-height: 340px; }
+.booking-terms {
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid #dcebe3;
+  border-radius: .75rem;
+  background: #f6faf7;
+}
+.booking-terms h3 { margin: 0 0 .85rem; font-size: .95rem; color: var(--public-ink); }
+.booking-terms-text { display: grid; gap: .75rem; }
+.booking-terms-text h3 { margin: 0 0 .2rem; font-family: inherit; font-size: .8rem; font-weight: 700; color: #355c4e; }
+.booking-terms-text p { margin: 0; color: var(--public-muted); font-size: .875rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.booking-terms-link, .booking-terms-error button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--public-green);
+  font-size: .8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.booking-terms-intro { margin: 0 0 .5rem; color: var(--public-muted); font-size: .875rem; line-height: 1.5; }
+.booking-terms .booking-terms-accept {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  margin: 1rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid #dcebe3;
+  font-size: .875rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.booking-terms .booking-terms-accept input { flex: none; width: 1rem; height: 1rem; margin: .15rem 0 0; padding: 0; accent-color: var(--public-green); }
+.booking-terms .booking-terms-accept span { margin: 0; color: var(--public-ink); font-weight: 700; }
+.booking-terms-note { margin: .6rem 0 0 1.65rem; color: var(--public-muted); font-size: .75rem; line-height: 1.5; }
+.booking-terms-error { margin-top: 1rem; }
+
+.booking-terms-dialog {
+  width: min(600px, calc(100% - 2rem));
+  max-height: min(75vh, 720px);
+  padding: 1.5rem;
+  border: 1px solid #dcebe3;
+  border-radius: 1rem;
+  color: var(--public-ink);
+  background: #fff;
+  box-shadow: 0 20px 60px #17382f35;
+}
+.booking-terms-dialog::backdrop { background: #10271f99; }
+.booking-terms-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.booking-terms-dialog-header h2 { margin: 0; font-size: 1.25rem; }
+.booking-terms-dialog-kicker { margin: 0 0 .4rem; color: var(--public-green); font-size: .7rem; font-weight: 700; letter-spacing: .1em; }
+.booking-terms-close { border: 0; background: transparent; color: var(--public-muted); font-size: 1.75rem; line-height: 1; cursor: pointer; }
+.booking-terms-dialog .booking-terms-text { gap: 1.25rem; }
+.booking-terms-dialog .booking-terms-text h3 { margin-bottom: .4rem; font-size: .9rem; }
+.booking-terms-dialog-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e4ede8; }
+.booking-terms-done { padding: .65rem 1.1rem; border: 0; border-radius: .5rem; background: var(--public-green); color: white; font-weight: 700; cursor: pointer; }
+.booking-terms-link:focus-visible, .booking-terms-close:focus-visible, .booking-terms-done:focus-visible { outline: 3px solid #8fc9b9; outline-offset: 3px; }
+@media print {
+  body:has(.booking-terms-dialog[open]) * { visibility: hidden; }
+  body:has(.booking-terms-dialog[open]) .booking-terms-dialog,
+  body:has(.booking-terms-dialog[open]) .booking-terms-dialog * { visibility: visible; }
+  .booking-terms-dialog[open] { position: absolute; inset: 0; width: 100%; max-width: none; height: auto; max-height: none; margin: 0; padding: 0; overflow: visible; border: 0; box-shadow: none; }
+  .booking-terms-dialog[open] .booking-terms-close, .booking-terms-dialog[open] .booking-terms-dialog-actions { display: none; }
 }

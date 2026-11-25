@@ -14,6 +14,8 @@ type Availability =
   | { status: 'loading' | 'unavailable' }
   | { status: 'ready'; slots: Slot[] };
 
+type Terms = { id: string; kind: 'center' | 'professional'; body: string };
+
 type ContactDraft = { name: string; email: string; phone: string };
 
 function AppointmentForm({ slug, service, professional, contact, onContactChange, submitting, setSubmitting, onConfirm }: {
@@ -31,6 +33,22 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
   const [contactVisible, setContactVisible] = useState(false);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState('');
+  const [terms, setTerms] = useState<Terms[] | null>(null);
+  const [termsError, setTermsError] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [termsRevision, setTermsRevision] = useState(0);
+  const termsDialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setTerms(null); setTermsError(false); setAccepted(false);
+    const query = new URLSearchParams({ service: service.id, professional: professional.id });
+    fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/terms?${query}`, { signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error('Could not load terms'); return response.json(); })
+      .then((data: Terms[]) => { if (!controller.signal.aborted) setTerms(data); })
+      .catch(() => { if (!controller.signal.aborted) setTermsError(true); });
+    return () => controller.abort();
+  }, [slug, service.id, professional.id, termsRevision]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -59,7 +77,7 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
 
   async function book(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!slot || submitting) return;
+    if (!slot || submitting || !terms || (terms.length > 0 && !accepted)) return;
 
     const form = new FormData(event.currentTarget);
     setSubmitting(true);
@@ -68,9 +86,13 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
       const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/bookings`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ service: service.id, professional: professional.id, start: slot,
-          name: form.get('name'), email: form.get('email'), phone: `${phoneCountryCode}${form.get('phone')}` }),
+          name: form.get('name'), email: form.get('email'), phone: `${phoneCountryCode}${form.get('phone')}`, terms: terms.map(term => term.id) }),
       });
-      if (response.status === 409) {
+      const result = await response.json();
+      if (response.status === 409 && result.code === 'TERMS_CHANGED') {
+        setError('Los términos cambiaron. Léelos y acéptalos nuevamente.');
+        setTermsRevision(value => value + 1);
+      } else if (response.status === 409) {
         setError('Este horario ya no está disponible. Elige otro horario actualizado.');
         refreshSlots();
       } else if (!response.ok) {
@@ -123,7 +145,20 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
             aria-describedby="booking-phone-prefix booking-phone-hint" />
         </div>
         <small className="booking-phone-hint" id="booking-phone-hint">Ingresa al menos 8 dígitos.</small>
-        <button type="submit" className="public-button booking-submit" disabled={!slot || submitting}>
+        {termsError && <p role="alert">No pudimos cargar los términos. <button type="button" className="booking-terms-link" onClick={() => setTermsRevision(value => value + 1)}>Reintentar</button></p>}
+        {terms && terms.length > 0 && <section className="booking-terms" aria-labelledby="terms-heading">
+          <h3 id="terms-heading">Términos y condiciones</h3>
+          <p className="booking-terms-intro">Lee los términos aplicables antes de confirmar tu reserva.</p>
+          <button className="booking-terms-link" type="button" onClick={() => termsDialog.current?.showModal()}>Ver términos y condiciones</button>
+          <dialog className="booking-terms-dialog" ref={termsDialog} aria-labelledby="terms-dialog-title">
+            <div className="booking-terms-dialog-header"><div><p className="booking-terms-dialog-kicker">TU RESERVA</p><h2 id="terms-dialog-title">Términos y condiciones</h2></div><button className="booking-terms-close" type="button" aria-label="Cerrar términos y condiciones" onClick={() => termsDialog.current?.close()}>×</button></div>
+            <div className="booking-terms-text">{terms.map(term => <article key={term.id}><h3>{term.kind === 'center' ? 'Términos del centro' : 'Términos del profesional y servicio'}</h3><p>{term.body}</p></article>)}</div>
+            <div className="booking-terms-dialog-actions"><button className="booking-terms-done" type="button" onClick={() => termsDialog.current?.close()}>Cerrar</button></div>
+          </dialog>
+          <label className="booking-terms-accept"><input type="checkbox" checked={accepted} onChange={event => setAccepted(event.target.checked)} /><span>Acepto los términos y condiciones de la reserva</span></label>
+          <p className="booking-terms-note">La aceptación de estos términos es independiente de la información de privacidad y del consentimiento clínico.</p>
+        </section>}
+        <button type="submit" className="public-button booking-submit" disabled={!slot || submitting || !terms || (terms.length > 0 && !accepted)}>
           {submitting ? 'Confirmando…' : 'Confirmar reserva'}
         </button>
       </fieldset>
