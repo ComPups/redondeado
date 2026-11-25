@@ -1,0 +1,13 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(4);
+update public.professional_services set price_clp=23456,duration_minutes=75 where center_id='10000000-0000-4000-8000-000000000001' and professional_user_id='20000000-0000-4000-8000-000000000002' and service_id='70000000-0000-4000-8000-000000000001';
+create temporary table test_booking(id uuid);
+insert into test_booking select public.book_public_appointment('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000002',(select starts_at from public.public_availability('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000002') limit 1),'Paciente prueba','patient@example.com','+56912345678',(select coalesce(array_agg(id),'{}'::uuid[]) from public.public_booking_terms('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000002')));
+select is((select price_clp from public.appointments where id=(select id from test_booking)),23456,'booking snapshots the professional price');
+select is((select ends_at-starts_at from public.appointments where id=(select id from test_booking)),interval '75 minutes','booking snapshots the professional duration');
+update public.professional_services set price_clp=99999,duration_minutes=30,active=false where center_id='10000000-0000-4000-8000-000000000001' and professional_user_id='20000000-0000-4000-8000-000000000002' and service_id='70000000-0000-4000-8000-000000000001';
+select is((select price_clp from public.appointments where id=(select id from test_booking)),23456,'offering changes do not alter booked price');
+select is((select ends_at-starts_at from public.appointments where id=(select id from test_booking)),interval '75 minutes','offering changes do not alter booked duration');
+select * from finish();
+rollback;

@@ -37,6 +37,9 @@ insert into public.services (id, center_id, name, price_clp, duration_minutes, d
   ('70000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 'Consulta nutricional', 30000, 45, 'Evaluación de tus hábitos y necesidades para definir un plan de alimentación personalizado.'),
   ('70000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 'Sesión de kinesiología', 28000, 45, 'Evaluación de movilidad y ejercicios guiados según tu lesión o motivo de consulta.');
 
+insert into public.professional_services(center_id,professional_user_id,service_id,price_clp,duration_minutes)
+select s.center_id,m.user_id,s.id,s.price_clp,s.duration_minutes from public.services s join public.center_memberships m on m.center_id=s.center_id where s.active;
+
 -- Fixed examples inside the current booking month, in the center's time zone.
 -- They are fictional and may be in the past near the end of that month.
 insert into public.appointments (id, center_id, professional_user_id, service_id, service_name,
