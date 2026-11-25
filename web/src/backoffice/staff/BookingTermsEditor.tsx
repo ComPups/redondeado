@@ -35,12 +35,13 @@ export function BookingTermsEditor({ centerId, centerName, professionalName, ser
     } catch { setMessage('No pudimos guardar los términos.'); setLoading(false); }
 
   }
-  return <section className="staff-section staff-page-section"><h2>Términos y condiciones</h2><p>Centro: {centerName} · Profesional: {scope === 'center' ? 'Todos' : professionalName}</p>
+  return <section className="staff-section staff-page-section staff-terms"><div className="section-heading"><div><p className="eyebrow">CONFIGURACIÓN DE RESERVAS</p><h2>Términos y condiciones</h2><p>Define los términos que tus pacientes deben aceptar al reservar.</p></div></div>
+    <div className="staff-terms-card"><p className="staff-terms-context"><strong>Centro:</strong> {centerName} <span aria-hidden="true">·</span> <strong>Profesional:</strong> {scope === 'center' ? 'Todos' : professionalName}</p>
     <label htmlFor="terms-scope">Servicio</label><select id="terms-scope" value={scope} onChange={e => setScope(e.target.value)}>{administrator && <option value="center">Términos del centro</option>}{services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
     <label htmlFor="terms-body">Texto completo</label><textarea id="terms-body" rows={10} maxLength={30000} value={body} onChange={e => setBody(e.target.value)} />
-    <p>Revisa la base de licitud, privacidad y las cláusulas de edad, cancelación e inasistencia antes de publicar. El consentimiento clínico es independiente.</p>
-    <button type="button" disabled={loading || !loaded || !scope || !body.trim()} onClick={() => void save(body)}>Publicar términos</button>{' '}
-    <button type="button" disabled={loading || !loaded || !terms.some(t => (t.service_id ?? 'center') === scope)} onClick={() => void save(null)}>Retirar términos</button>
-    {message && <p role="alert">{message} {!loaded && <button type="button" onClick={() => setRevision(v => v + 1)}>Reintentar</button>}</p>}
-  </section>;
+    <p className="staff-terms-help">Revisa la base de licitud, privacidad y las cláusulas de edad, cancelación e inasistencia antes de publicar. El consentimiento clínico es independiente.</p>
+    <div className="staff-terms-actions"><button className="staff-terms-publish" type="button" disabled={loading || !loaded || !scope || !body.trim()} onClick={() => void save(body)}>Publicar términos</button>{' '}
+    <button className="staff-terms-withdraw" type="button" disabled={loading || !loaded || !terms.some(t => (t.service_id ?? 'center') === scope)} onClick={() => void save(null)}>Retirar términos</button></div>
+    {message && <p className="notice error" role="alert">{message} {!loaded && <button type="button" onClick={() => setRevision(v => v + 1)}>Reintentar</button>}</p>}
+    </div></section>;
 }
