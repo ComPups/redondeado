@@ -3,7 +3,7 @@ import { Button, Form, Modal } from 'react-bootstrap';
 import { BookingCalendar, type Slot } from '../../shared/components/BookingCalendar';
 import { fetchAvailability } from '../../shared/api';
 
-type Options = { professionals: { id: string; name: string }[]; services: { id: string; name: string; duration_minutes: number }[] };
+type Options = { professionals: { id: string; name: string }[]; services: { id: string; name: string; duration_minutes: number; professional_id: string }[] };
 export function NewAppointment({ show, onClose, onCreated, centerId, token, apiUrl, scope }: { show: boolean; onClose: () => void; onCreated: () => void; centerId: string; token: string; apiUrl: string; scope: 'personal' | 'center' }) {
   const [options, setOptions] = useState<Options | null>(null);
   const [service, setService] = useState('');
@@ -44,8 +44,8 @@ export function NewAppointment({ show, onClose, onCreated, centerId, token, apiU
   return <Modal show={show} onHide={busy ? undefined : onClose} centered><Modal.Header closeButton={!busy}><Modal.Title>Agendar una cita</Modal.Title></Modal.Header><Modal.Body>
     {error && <p className="notice error" role="alert">{error}</p>}
     {!options ? !error && <p role="status">Cargando opciones…</p> : <Form id="new-appointment-form" className="appointment-form" onSubmit={submit}>
-      <Form.Group><Form.Label htmlFor="new-service">Servicio</Form.Label><Form.Select id="new-service" required value={service} onChange={e => setService(e.target.value)}><option value="">Selecciona un servicio</option>{options.services.map(s => <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes} min</option>)}</Form.Select></Form.Group>
-      {scope === 'center' && <Form.Group><Form.Label htmlFor="new-professional">Profesional</Form.Label><Form.Select id="new-professional" required value={professional} onChange={e => setProfessional(e.target.value)}><option value="">Selecciona un profesional</option>{options.professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</Form.Select></Form.Group>}
+      {scope === 'center' && <Form.Group><Form.Label htmlFor="new-professional">Profesional</Form.Label><Form.Select id="new-professional" required value={professional} onChange={e => { setProfessional(e.target.value); setService(''); }}><option value="">Selecciona un profesional</option>{options.professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</Form.Select></Form.Group>}
+      <Form.Group><Form.Label htmlFor="new-service">Servicio</Form.Label><Form.Select id="new-service" required disabled={!professional} value={service} onChange={e => setService(e.target.value)}><option value="">Selecciona un servicio</option>{options.services.filter(s => s.professional_id === professional).map(s => <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes} min</option>)}</Form.Select></Form.Group>
       {scope === 'personal' && options.professionals.length === 0 && <p role="alert">No tienes un perfil profesional disponible para agendar en este centro.</p>}
       {service && professional && <BookingCalendar key={`${service}-${professional}`} slots={slots} selected={slot} onSelect={setSlot} busy={loading || busy} />}
       <Form.Group><Form.Label htmlFor="new-name">Nombre del paciente</Form.Label><Form.Control id="new-name" name="name" required minLength={2} maxLength={120} /></Form.Group>

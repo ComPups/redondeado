@@ -3,9 +3,6 @@ begin;
 delete from public.booking_terms_current where center_id = '10000000-0000-4000-8000-000000000001';
 create extension if not exists pgtap with schema extensions;
 select plan(23);
--- Verify the catalog works for an existing center with no legacy assignments.
-delete from public.professional_services
-where center_id = '10000000-0000-4000-8000-000000000001';
 insert into public.centers (id, name, slug) values
   ('10000000-0000-4000-8000-000000000099', 'Other Center', 'other-catalog-center');
 insert into public.services (id, center_id, name, price_clp, duration_minutes, active) values
@@ -27,7 +24,7 @@ select is(
     where professional->'service_ids' = '["70000000-0000-4000-8000-000000000001", "70000000-0000-4000-8000-000000000002", "70000000-0000-4000-8000-000000000003"]'::jsonb),
   3::bigint, 'each member offers the entire active center catalog'
 );
-select ok(exists(select 1 from public.public_availability('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000001')), 'an active service has availability without an assignment');
+select ok(exists(select 1 from public.public_availability('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000001')), 'an offered service has availability');
 select is((select count(*) from public.public_availability('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000098','50000000-0000-4000-8000-000000000001')), 0::bigint, 'inactive services have no availability');
 select is((select count(*) from public.public_availability('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000099','50000000-0000-4000-8000-000000000001')), 0::bigint, 'services at another center have no availability here');
 select throws_ok($$select public.book_public_appointment('other-catalog-center','70000000-0000-4000-8000-000000000099','50000000-0000-4000-8000-000000000001',now() + interval '1 day','Paciente','p@example.com','+56912345678')$$, 'P0001', null, 'booking requires a membership at the selected center');

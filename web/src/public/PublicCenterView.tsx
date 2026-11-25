@@ -29,8 +29,12 @@ function CenterPage({ center, slug }: { center: CenterProfile; slug: string }) {
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState<BookingChoice | null>(null);
   const search = searchable(query.trim());
-  const services = center.services.filter(service =>
-    searchable([service.name, service.description].join(' ')).includes(search));
+  const offeringsByService = [...center.services.reduce((map, service) => {
+    const key = service.id;
+    map.set(key, [...(map.get(key) ?? []), service]);
+    return map;
+  }, new Map<string, typeof center.services>()).values()].filter(versions => versions.some(service =>
+    searchable([service.name, service.description].join(' ')).includes(search)));
   const professionals = center.professionals.filter(professional =>
     searchable([professional.name, professional.description].join(' ')).includes(search));
 
@@ -78,22 +82,25 @@ function CenterPage({ center, slug }: { center: CenterProfile; slug: string }) {
             }}>
             <Tab eventKey="service" title="Por servicio">
               {searchField('service', 'Buscar servicios', 'Nombre o descripción')}
-              {services.length ? (
+              {offeringsByService.length ? (
                 <div className="center-card-grid">
-                  {services.map(service => {
-                    const bookable = center.professionals.length > 0;
+                  {offeringsByService.map(versions => {
+                    const service = versions[0];
+                    const bookable = center.professionals.some(person => versions.some(version => version.professional_id ? version.professional_id === person.id : person.service_ids?.includes(version.id)));
+                    const prices = versions.map(version => version.price_clp);
+                    const durations = new Set(versions.map(version => version.duration_minutes));
                     return (
                       <article className="center-booking-card" key={service.id}>
                         <h3>{service.name}</h3>
                         <p className="center-service-meta">
-                          <strong>{formatPrice(service.price_clp)}</strong>
-                          <span>{service.duration_minutes} min</span>
+                          <strong>{new Set(prices).size > 1 ? 'Desde ' : ''}{formatPrice(Math.min(...prices))}</strong>
+                          <span>{durations.size > 1 ? 'Duración variable' : `${service.duration_minutes} min`}</span>
                         </p>
-                        {service.description && <p className="center-card-description">{service.description}</p>}
+                        {(service.description) && <p className="center-card-description">{service.description}</p>}
                         {bookable ? (
                           <button type="button" className="public-button public-button-outline"
                             aria-label={`Reservar ${service.name}`}
-                            onClick={() => setChoice({ kind: 'service', service })}>Reservar <span aria-hidden="true">→</span></button>
+                            onClick={() => setChoice({ kind: 'service', service, versions })}>Reservar <span aria-hidden="true">→</span></button>
                         ) : <p className="center-card-unavailable">Sin profesionales disponibles para reservar.</p>}
                       </article>
                     );
@@ -112,10 +119,10 @@ function CenterPage({ center, slug }: { center: CenterProfile; slug: string }) {
                         <h3>{professional.name}</h3>
                       </div>
                       {professional.description && <p className="center-card-description">{professional.description}</p>}
-                      {center.services.length ? (
+                      {professional.service_ids?.length ? (
                         <>
                           <ul className="center-service-tags" aria-label={`Servicios de ${professional.name}`}>
-                            {center.services.map(service => <li key={service.id}>{service.name}</li>)}
+                            {center.services.filter(service => (service.professional_id ? service.professional_id === professional.id : professional.service_ids?.includes(service.id))).map(service => <li key={service.id}>{service.name}</li>)}
                           </ul>
                           <button type="button" className="public-button public-button-outline stretched-link"
                             aria-label={`Reservar con ${professional.name}`}

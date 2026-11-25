@@ -2,8 +2,7 @@
 
 The existing public, staff and platform routes use parameterized Postgres through
 `createDatabase().transaction`; Supabase Auth remains responsible for sign-in,
-refresh, sign-out and server-side token verification. Service CRUD is being developed separately after this migration and must adopt
-the interface below. Hosted verification remains a deployment step.
+refresh, sign-out and server-side token verification. Service CRUD uses the transaction interface below. Hosted verification remains a deployment step.
 
 Service CRUD must call `transaction` with the staff user ID obtained from
 server-verified Auth, issue parameterized SQL through its callback client, and
@@ -123,3 +122,16 @@ Auth, REST, table, RPC and GraphQL checks.
 After hosted deployment, record the separate hosted Data API denial, Auth, and
 REST evidence. Run the same authorization and contract checks for service CRUD
 when it is integrated later.
+
+Service offerings use the center catalog and transaction-scoped staff identity; the
+`staff_booking_offerings` projection validates membership through
+`staff_booking_professionals`. The `private.deactivate_service_offerings` trigger
+retires linked offerings when an administrator deactivates a catalog entry. The
+`private.check_offering_catalog_active` trigger locks and checks the catalog when
+an offering is created or reactivated. These functions use fixed search paths;
+the triggers are not directly executable by staff.
+
+The public booking REST endpoint requires `expected_price_clp`. The public
+database role can execute `book_public_appointment_with_price` but not the
+unchecked booking function; the wrapper locks the offering and rejects stale
+prices before booking. Clients should refresh the catalog after `PRICE_CHANGED`.

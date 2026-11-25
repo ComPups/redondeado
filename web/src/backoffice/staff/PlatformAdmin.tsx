@@ -44,6 +44,7 @@ export function PlatformAdmin({ token, onCreated }: { token: string; onCreated: 
 
   return <section><h2>Platform administration</h2>
     <h3>Edit records</h3><label>Entity <select value={entity} onChange={e => { setEntity(e.target.value); setEditing(''); setRecords([]); }}>{Object.keys(fields).map(k => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}</select></label>
+    {entity === 'services' && <p>Service prices and durations are suggested starting values for new professional offerings; editing them does not change existing offerings.</p>}
     {message && <p role="status">{message}</p>}
     <ul>{records.map(record => { const id = String(record.id ?? record.professional_id ?? `${record.center_id}/${record.user_id}`); return <li key={id}>
       <pre>{JSON.stringify(record, null, 2)}</pre><button onClick={() => setEditing(id)}>Edit</button>

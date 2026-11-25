@@ -36,6 +36,72 @@ router.get('/centers/:centerId', (req, res) => {
   res.json({ centerId: req.params.centerId, role: res.locals.role });
 });
 
+router.get('/centers/:centerId/service-catalog', async (req, res) => {
+  const { data, error } = await query(res, 'select id, name, description, price_clp, duration_minutes from public.services where center_id=$1 and active order by name limit 1000', [req.params.centerId]);
+  if (error) { res.status(500).json({ error: 'No se pudo cargar el catálogo.' }); return; }
+  res.json(data);
+});
+
+function validOffering(body: any) {
+  return Number.isSafeInteger(body?.price_clp) && body.price_clp >= 0 && body.price_clp <= 2147483647 && Number.isSafeInteger(body?.duration_minutes) && body.duration_minutes >= 1 && body.duration_minutes <= 1440;
+}
+const serviceIdValid = (id: unknown) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+router.post('/centers/:centerId/service-catalog', async (req, res) => {
+  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  const { name, description = '' } = req.body ?? {};
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 120 || typeof description !== 'string' || description.length > 400 || !validOffering(req.body)) { res.status(400).json({ error: 'Datos de servicio inválidos.' }); return; }
+  const { data, error } = await query(res, 'insert into public.services(center_id,name,description,price_clp,duration_minutes) values($1,$2,$3,$4,$5) returning id,name,description,price_clp,duration_minutes', [req.params.centerId,name.trim(),description.trim(),req.body.price_clp,req.body.duration_minutes]);
+  if (error) { res.status(error.code === '23505' ? 409 : 400).json({ error: error.code === '23505' ? 'Ya existe un servicio con ese nombre en el centro.' : 'No se pudo crear el servicio del centro.' }); return; }
+  res.status(201).json(data[0]);
+});
+router.patch('/centers/:centerId/service-catalog/:serviceId', async (req, res) => {
+  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  const { name, description = '' } = req.body ?? {};
+  if (!serviceIdValid(req.params.serviceId) || typeof name !== 'string' || !name.trim() || name.trim().length > 120 || typeof description !== 'string' || description.length > 400) { res.status(400).json({ error: 'Datos de servicio inválidos.' }); return; }
+  const { data, error } = await query(res, 'update public.services set name=$1,description=$2 where center_id=$3 and id=$4 and active returning id,name,description,price_clp,duration_minutes', [name.trim(),description.trim(),req.params.centerId,req.params.serviceId]);
+  if (error) { res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'Ya existe un servicio con ese nombre en el centro.' : 'No se pudo actualizar el servicio.' }); return; }
+  if (!data.length) { res.status(404).json({ error: 'Servicio no encontrado.' }); return; }
+  res.json(data[0]);
+});
+router.delete('/centers/:centerId/service-catalog/:serviceId', async (req, res) => {
+  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  if (!serviceIdValid(req.params.serviceId)) { res.status(400).json({ error: 'Servicio inválido.' }); return; }
+  const { data, error } = await query(res, 'update public.services set active=false where center_id=$1 and id=$2 and active returning id', [req.params.centerId,req.params.serviceId]);
+  if (error) { res.status(500).json({ error: 'No se pudo eliminar el servicio.' }); return; }
+  if (!data.length) { res.status(404).json({ error: 'Servicio no encontrado.' }); return; }
+  res.json(data[0]);
+});
+router.get('/centers/:centerId/services', async (req, res) => {
+  const { data, error } = await query(res, 'select s.id,s.name,s.description,ps.price_clp,ps.duration_minutes from public.professional_services ps join public.services s on s.center_id=ps.center_id and s.id=ps.service_id where ps.center_id=$1 and ps.professional_user_id=$2 and ps.active and s.active order by s.name', [req.params.centerId,res.locals.staff.userId]);
+  if (error) { res.status(500).json({ error: 'No se pudieron cargar tus servicios.' }); return; }
+  res.json(data);
+});
+router.post('/centers/:centerId/services', async (req, res) => {
+  if (!['member','administrator'].includes(res.locals.role)) { res.status(403).json({ error: 'Acceso de solo lectura.' }); return; }
+  if (!serviceIdValid(req.body?.service_id) || !validOffering(req.body)) { res.status(400).json({ error: 'Datos de servicio inválidos.' }); return; }
+  const { data, error } = await query(res, `with saved as (insert into public.professional_services(center_id,professional_user_id,service_id,price_clp,duration_minutes) values($1,$2,$3,$4,$5) on conflict(center_id,professional_user_id,service_id) do update set active=true,price_clp=excluded.price_clp,duration_minutes=excluded.duration_minutes where not public.professional_services.active returning *) select s.id,s.name,s.description,saved.price_clp,saved.duration_minutes from saved join public.services s on s.id=saved.service_id and s.center_id=saved.center_id`, [req.params.centerId,res.locals.staff.userId,req.body.service_id,req.body.price_clp,req.body.duration_minutes]);
+  if (error) { res.status(['23503', '23514', '42501'].includes(error.code ?? '') ? 400 : 500).json({ error: 'No se pudo crear el servicio.' }); return; }
+  if (!data.length) { res.status(409).json({ error: 'Ya ofreces este servicio.' }); return; }
+  res.status(201).json(data[0]);
+});
+router.patch('/centers/:centerId/services/:serviceId', async (req, res) => {
+  if (!['member','administrator'].includes(res.locals.role)) { res.status(403).json({ error: 'Acceso de solo lectura.' }); return; }
+  if (!serviceIdValid(req.params.serviceId) || !validOffering(req.body)) { res.status(400).json({ error: 'Datos de servicio inválidos.' }); return; }
+  const { data, error } = await query(res, `with saved as (update public.professional_services set price_clp=$1,duration_minutes=$2 where center_id=$3 and professional_user_id=$4 and service_id=$5 and active and exists(select 1 from public.services s where s.center_id=$3 and s.id=$5 and s.active) returning *) select s.id,s.name,s.description,saved.price_clp,saved.duration_minutes from saved join public.services s on s.id=saved.service_id and s.center_id=saved.center_id where s.active`, [req.body.price_clp,req.body.duration_minutes,req.params.centerId,res.locals.staff.userId,req.params.serviceId]);
+  if (error) { res.status(500).json({ error: 'No se pudo editar el servicio.' }); return; }
+  if (!data.length) { res.status(404).json({ error: 'Servicio no encontrado.' }); return; }
+  res.json(data[0]);
+});
+router.delete('/centers/:centerId/services/:serviceId', async (req, res) => {
+  if (!['member','administrator'].includes(res.locals.role)) { res.status(403).json({ error: 'Acceso de solo lectura.' }); return; }
+  if (!serviceIdValid(req.params.serviceId)) { res.status(400).json({ error: 'Servicio inválido.' }); return; }
+  const { data, error } = await query(res, 'update public.professional_services set active=false where center_id=$1 and professional_user_id=$2 and service_id=$3 and active returning service_id as id', [req.params.centerId,res.locals.staff.userId,req.params.serviceId]);
+  if (error) { res.status(500).json({ error: 'No se pudo eliminar el servicio.' }); return; }
+  if (!data.length) { res.status(404).json({ error: 'Servicio no encontrado.' }); return; }
+  res.json(data[0]);
+});
+
 router.get('/centers/:centerId/appointments', async (req, res) => {
   const { userId } = res.locals.staff;
   const period = req.query.period ?? 'upcoming';
@@ -97,7 +163,7 @@ router.get('/centers/:centerId/booking-options', async (req, res) => {
   if (res.locals.role === 'limited') { res.status(403).json({ error: 'Acceso de solo lectura.' }); return; }
   const [professionals, services] = await Promise.all([
     query(res, 'select * from public.staff_booking_professionals($1) limit 1000', [req.params.centerId]),
-    query(res, 'select id, name, duration_minutes from public.services where center_id = $1 and active order by name limit 1000', [req.params.centerId]),
+    query(res, 'select * from public.staff_booking_offerings($1) limit 1000', [req.params.centerId]),
   ]);
   if (professionals.error || services.error) { res.status(500).json({ error: 'No se pudieron cargar los servicios y profesionales.' }); return; }
   let availableProfessionals = professionals.data;
@@ -107,7 +173,7 @@ router.get('/centers/:centerId/booking-options', async (req, res) => {
     if (ownError) { res.status(500).json({ error: 'No se pudo cargar tu perfil profesional.' }); return; }
     availableProfessionals = professionals.data.filter((professional: { id: string }) => professional.id === ownId);
   }
-  res.json({ professionals: availableProfessionals, services: services.data });
+  res.json({ professionals: availableProfessionals, services: services.data.filter((service: { professional_id: string }) => availableProfessionals.some((p: { id: string }) => p.id === service.professional_id)) });
 });
 
 router.get('/centers/:centerId/availability', async (req, res) => {

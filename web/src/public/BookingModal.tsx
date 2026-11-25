@@ -7,7 +7,7 @@ import { formatPrice, type CenterProfile, type Professional, type Service } from
 const phoneCountryCode = '+56';
 
 export type BookingChoice =
-  | { kind: 'service'; service: Service }
+  | { kind: 'service'; service: Service; versions: Service[] }
   | { kind: 'professional'; professional: Professional };
 
 type Availability =
@@ -18,7 +18,7 @@ type Terms = { id: string; kind: 'center' | 'professional'; body: string };
 
 type ContactDraft = { name: string; email: string; phone: string };
 
-function AppointmentForm({ slug, service, professional, contact, onContactChange, submitting, setSubmitting, onConfirm }: {
+function AppointmentForm({ slug, service, professional, contact, onContactChange, submitting, setSubmitting, onConfirm, onRefreshPrice }: {
   slug: string;
   service: Service;
   professional: Professional;
@@ -27,12 +27,14 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
   submitting: boolean;
   setSubmitting: (value: boolean) => void;
   onConfirm: (slot: string) => void;
+  onRefreshPrice: () => Promise<boolean>;
 }) {
   const [availability, setAvailability] = useState<Availability>({ status: 'loading' });
   const [slot, setSlot] = useState('');
   const [contactVisible, setContactVisible] = useState(false);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState('');
+  const [priceChanged, setPriceChanged] = useState(false);
   const [terms, setTerms] = useState<Terms[] | null>(null);
   const [termsError, setTermsError] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -77,7 +79,7 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
 
   async function book(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!slot || submitting || !terms || (terms.length > 0 && !accepted)) return;
+    if (!slot || submitting || priceChanged || !terms || (terms.length > 0 && !accepted)) return;
 
     const form = new FormData(event.currentTarget);
     setSubmitting(true);
@@ -86,10 +88,13 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
       const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/bookings`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ service: service.id, professional: professional.id, start: slot,
-          name: form.get('name'), email: form.get('email'), phone: `${phoneCountryCode}${form.get('phone')}`, terms: terms.map(term => term.id) }),
+          name: form.get('name'), email: form.get('email'), phone: `${phoneCountryCode}${form.get('phone')}`, expected_price_clp: service.price_clp, terms: terms.map(term => term.id) }),
       });
       const result = await response.json();
-      if (response.status === 409 && result.code === 'TERMS_CHANGED') {
+      if (response.status === 409 && result.code === 'PRICE_CHANGED') {
+        setPriceChanged(true);
+        setError('El precio cambió. Actualízalo y revisa el nuevo valor antes de reservar.');
+      } else if (response.status === 409 && result.code === 'TERMS_CHANGED') {
         setError('Los términos cambiaron. Léelos y acéptalos nuevamente.');
         setTermsRevision(value => value + 1);
       } else if (response.status === 409) {
@@ -126,6 +131,13 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
         }} disabled={submitting} />
       )}
       {error && <p className="error notice" role="alert">{error}</p>}
+      {priceChanged && <button type="button" className="public-button public-button-outline" disabled={submitting} onClick={() => {
+        setSubmitting(true);
+        void onRefreshPrice().then(ok => {
+          if (ok) { setPriceChanged(false); refreshSlots(); setError('Precio actualizado. Revísalo y elige un horario nuevamente.'); }
+          else setError('No pudimos actualizar el precio. Inténtalo de nuevo o cierra la reserva.');
+        }).finally(() => setSubmitting(false));
+      }}>Actualizar precio</button>}
       <fieldset className="booking-contact" hidden={!contactVisible} disabled={!contactVisible || submitting}>
         <legend>Tus datos</legend>
         <label>Nombre completo
@@ -158,7 +170,7 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
           <label className="booking-terms-accept"><input type="checkbox" checked={accepted} onChange={event => setAccepted(event.target.checked)} /><span>Acepto los términos y condiciones de la reserva</span></label>
           <p className="booking-terms-note">La aceptación de estos términos es independiente de la información de privacidad y del consentimiento clínico.</p>
         </section>}
-        <button type="submit" className="public-button booking-submit" disabled={!slot || submitting || !terms || (terms.length > 0 && !accepted)}>
+        <button type="submit" className="public-button booking-submit" disabled={!slot || submitting || priceChanged || !terms || (terms.length > 0 && !accepted)}>
           {submitting ? 'Confirmando…' : 'Confirmar reserva'}
         </button>
       </fieldset>
@@ -173,12 +185,22 @@ export function BookingModal({ center, slug, choice, onClose }: {
   onClose: () => void;
 }) {
   const [selection, setSelection] = useState('');
+  const [offerings, setOfferings] = useState(center.services);
   const [contact, setContact] = useState<ContactDraft>({ name: '', email: '', phone: '' });
   const [submitting, setSubmitting] = useState(false);
   const [confirmedSlot, setConfirmedSlot] = useState('');
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
-  const service = choice.kind === 'service' ? choice.service : center.services.find(service => service.id === selection);
   const professional = choice.kind === 'professional' ? choice.professional : center.professionals.find(person => person.id === selection);
+  const service = offerings.find(item => item.id === (choice.kind === 'service' ? choice.service.id : selection) && (item.professional_id ? item.professional_id === professional?.id : professional?.service_ids?.includes(item.id)));
+  async function refreshPrice() {
+    try {
+      const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}`);
+      if (!response.ok) return false;
+      const profile: CenterProfile = await response.json();
+      if (!profile.services.some(item => item.id === service?.id && (item.professional_id ? item.professional_id === professional?.id : professional?.service_ids?.includes(item.id)))) return false;
+      setOfferings(profile.services); return true;
+    } catch { return false; }
+  }
   const title = choice.kind === 'service' ? choice.service.name : choice.professional.name;
 
   useEffect(() => {
@@ -212,21 +234,21 @@ export function BookingModal({ center, slug, choice, onClose }: {
               <label>Profesional
                 <select value={selection} onChange={event => setSelection(event.target.value)} disabled={submitting}>
                   <option value="">Selecciona un profesional</option>
-                  {center.professionals.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
+                  {center.professionals.filter(person => choice.versions.some(version => (version.professional_id ? version.professional_id === person.id : person.service_ids?.includes(version.id)))).map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
                 </select>
               </label>
             ) : (
               <label>Servicio
                 <select value={selection} onChange={event => setSelection(event.target.value)} disabled={submitting}>
                   <option value="">Selecciona un servicio</option>
-                  {center.services.map(item => <option key={item.id} value={item.id}>{item.name} · {item.duration_minutes} min · {formatPrice(item.price_clp)}</option>)}
+                  {offerings.filter(item => (item.professional_id ? item.professional_id === choice.professional.id : choice.professional.service_ids?.includes(item.id))).map(item => <option key={item.id} value={item.id}>{item.name} · {item.duration_minutes} min · {formatPrice(item.price_clp)}</option>)}
                 </select>
               </label>
             )}
             {service && professional && (
               <AppointmentForm key={selection} slug={slug} service={service} professional={professional}
                 contact={contact} onContactChange={changeContact}
-                submitting={submitting} setSubmitting={setSubmitting} onConfirm={setConfirmedSlot} />
+                submitting={submitting} setSubmitting={setSubmitting} onConfirm={setConfirmedSlot} onRefreshPrice={refreshPrice} />
             )}
           </>
         )}

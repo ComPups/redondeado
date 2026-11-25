@@ -31,13 +31,14 @@ export function publicRoutes(db: Database) {
     } catch { res.status(500).json({ error: 'Could not load terms' }); }
   });
   router.post('/centers/:slug/bookings', async (req, res) => {
-    const { service, professional, start, name, email, phone, terms = [] } = req.body ?? {};
-    if (![service, professional, start, name, email, phone].every(value => typeof value === 'string') || !Array.isArray(terms) || !terms.every(id => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) { res.status(400).json({ error: 'Invalid booking' }); return; }
+    const { service, professional, start, name, email, phone, expected_price_clp, terms = [] } = req.body ?? {};
+    if (![service, professional, start, name, email, phone].every(value => typeof value === 'string') || !Number.isSafeInteger(expected_price_clp) || expected_price_clp < 0 || expected_price_clp > 2147483647 || !Array.isArray(terms) || !terms.every(id => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) { res.status(400).json({ error: 'Invalid booking' }); return; }
     try {
-      await db.transaction(publicIdentity, client => client.query('select public.book_public_appointment($1, $2, $3, $4, $5, $6, $7, $8::uuid[])', [req.params.slug, service, professional, start, name, email, phone, terms]));
+      await db.transaction(publicIdentity, client => client.query('select public.book_public_appointment_with_price($1, $2, $3, $4, $5, $6, $7, $8::uuid[], $9)', [req.params.slug, service, professional, start, name, email, phone, terms, expected_price_clp]));
       res.status(201).json({ success: true });
     } catch (error) {
       const code = (error as { code?: string }).code;
+      if (code === 'P0002') { res.status(409).json({ error: 'Price changed', code: 'PRICE_CHANGED' }); return; }
       if (code === 'PT409') { res.status(409).json({ error: 'Terms changed or not accepted', code: 'TERMS_CHANGED' }); return; }
       res.status(code === '23P01' || code === 'P0001' ? 409 : 400).json({ error: 'Could not book appointment' });
     }
