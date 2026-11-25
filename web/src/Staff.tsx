@@ -10,16 +10,20 @@ import { PlatformAdmin } from './backoffice/staff/PlatformAdmin';
 import { useStaffWorkspace } from './backoffice/staff/staffWorkspace';
 import { Services } from './backoffice/services/Services';
 import { ServiceCatalog } from './backoffice/services/ServiceCatalog';
-import { useCenterProfile } from './public/centerProfile';
+import { CenterSettings } from './backoffice/components/CenterSettings';
+import { EditButton } from './backoffice/components/EditButton';
+import { useEffect, useState } from 'react';
 
 export function Staff() {
   const location = useLocation();
   const centerPage = location.pathname === '/staff/centro';
   const servicesPage = location.pathname === '/staff/servicios';
-  const { configured, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, refreshCenters } = useStaffWorkspace();
+  const { configured, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, updateCenterDetails, refreshCenters } = useStaffWorkspace();
   const selectedCenter = centers.find(c => c.center_id === selected);
-  const profileResult = useCenterProfile(centerPage ? selectedCenter?.centers.slug ?? '' : '');
-  const profile = profileResult.status === 'ready' ? profileResult.profile : null;
+  const profile = selectedCenter?.centers;
+  const [editingCenter, setEditingCenter] = useState(false);
+  const [centerSaved, setCenterSaved] = useState(false);
+  useEffect(() => { setEditingCenter(false); setCenterSaved(false); }, [selected, location.pathname, session?.user.id]);
   if (!configured) return <main><h1>Backoffice</h1><p>Supabase is not configured.</p></main>;
   if (loading) return <BrandLoader label="Comprobando sesión…" />;
   if (!session) return <LoginView onSignIn={signIn} />;
@@ -39,11 +43,14 @@ export function Staff() {
     {centersLoading ? <LoadingSkeleton label="Cargando centros…" /> : centers.length === 0 ? <div className="empty">No tienes centros disponibles.</div> : <>
       <div className="staff-context"><span>MI CENTRO</span><label>Centro <select value={selected} onChange={e => selectCenter(e.target.value)}>{centers.map(c => <option key={c.center_id} value={c.center_id}>{c.centers.name}</option>)}</select></label><button className="staff-signout" type="button" onClick={refreshCenters}>Actualizar centros</button></div>
       {centerPage ? <><section className="staff-hero" aria-labelledby="center-name">
-        <div><p className="staff-kicker">MI CENTRO</p><h1 id="center-name">{selectedCenter?.centers.name}</h1>
-          <p>{profile?.description || (profileResult.status === 'loading' ? 'Cargando información del centro…' : 'Consulta la actividad y los servicios de tu centro.')}</p>
+        <div><div className="staff-center-heading"><p className="staff-kicker">MI CENTRO</p>
+          {role === 'administrator' && <EditButton name="centro" onClick={() => { setEditingCenter(true); setCenterSaved(false); }} disabled={editingCenter} />}</div><h1 id="center-name">{selectedCenter?.centers.name}</h1>
+          <p>{profile?.description || 'Consulta la actividad y los servicios de tu centro.'}</p>
           {selectedCenter?.centers.slug && <Link className="staff-public-link" to={`/${selectedCenter.centers.slug}`}>Ver página pública <span aria-hidden="true">↗</span></Link>}</div>
         <div className="staff-hero-meta"><div><span>TU ROL</span><strong>{role ? roleLabel[role] : 'Cargando…'}</strong></div><div><span>HORARIO DE ATENCIÓN</span><strong>{profile?.opens_at && profile.closes_at ? `${profile.opens_at.slice(0, 5)} – ${profile.closes_at.slice(0, 5)}` : 'No disponible'}</strong></div></div>
       </section>
+      {centerSaved && <p className="notice" role="status">Configuración guardada.</p>}
+      {editingCenter && role === 'administrator' && selectedCenter && <CenterSettings key={`${selected}-settings`} center={selectedCenter.centers} token={session.access_token} onCancel={() => setEditingCenter(false)} onSaved={center => { updateCenterDetails(center); setEditingCenter(false); setCenterSaved(true); }} />}
       {role && <ServiceCatalog key={selected} centerId={selected} token={session.access_token} canManage={role === 'administrator'} />}
       {role === 'administrator' && <Agenda key={`${selected}-center`} scope="center" role={role} token={session.access_token} centerId={selected} apiUrl={apiUrl} />}
       </> : servicesPage ? <>
