@@ -129,12 +129,34 @@ router.get('/centers/:centerId/appointments', async (req, res) => {
   const period = req.query.period ?? 'upcoming';
   const scope = req.query.scope ?? 'personal';
   const pageText = req.query.page ?? '1';
-  if ((period !== 'upcoming' && period !== 'past') || (scope !== 'personal' && scope !== 'center') || typeof pageText !== 'string' || !/^[1-9]\d{0,5}$/.test(pageText)) {
+  const month = req.query.month;
+  if ((period !== 'upcoming' && period !== 'past') || (scope !== 'personal' && scope !== 'center') || typeof pageText !== 'string' || !/^[1-9]\d{0,5}$/.test(pageText) || (month !== undefined && (typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)))) {
     res.status(400).json({ error: 'Invalid agenda filter' }); return;
   }
   const page = Number(pageText);
   const pageSize = 50;
   const personal = scope === 'personal' || !['administrator', 'platform_administrator'].includes(res.locals.role);
+  const includeProfessionalNames = async (data: { id: string }[]) => {
+    if (!['administrator', 'platform_administrator'].includes(res.locals.role) || !data.length) return data;
+    const { data: names, error: namesError } = await query(res, 'select * from public.appointment_professional_names($1) where appointment_id = any($2::uuid[])', [req.params.centerId, data.map(row => row.id)]);
+    if (namesError) return null;
+    const byId = new Map((names as { appointment_id: string; display_name: string }[]).map(n => [n.appointment_id, n.display_name]));
+    return data.map(row => ({ ...row, professional_name: byId.get(row.id) ?? null }));
+  };
+  if (month) {
+    const [year, monthNumber] = month.split('-').map(Number);
+    const { data, error } = await query(res, `
+      select id, service_name, patient_name, patient_email, patient_phone, starts_at, ends_at, professional_user_id
+      from public.appointments
+      where center_id = $1 and (not $2::boolean or professional_user_id = $3)
+        and starts_at >= make_timestamptz($4, $5, 1, 0, 0, 0, 'America/Santiago')
+        and starts_at < make_timestamptz($4, $5, 1, 0, 0, 0, 'America/Santiago') + interval '1 month'
+      order by starts_at asc, id asc`, [req.params.centerId, personal, userId, year, monthNumber]);
+    if (error) { res.status(500).json({ error: 'Could not load appointments' }); return; }
+    const appointments = await includeProfessionalNames(data);
+    if (!appointments) { res.status(500).json({ error: 'Could not load professional names' }); return; }
+    res.json({ appointments }); return;
+  }
   const comparison = period === 'past' ? '<' : '>=';
   const direction = period === 'past' ? 'desc' : 'asc';
   const statement = `with filtered as materialized (
@@ -147,13 +169,9 @@ router.get('/centers/:centerId/appointments', async (req, res) => {
   if (result.error || !result.data[0]) { res.status(500).json({ error: 'Could not load appointments' }); return; }
   const data = result.data[0].appointments;
   const count = result.data[0].count;
-  if (['administrator', 'platform_administrator'].includes(res.locals.role) && data.length) {
-    const { data: names, error: namesError } = await query(res, 'select * from public.appointment_professional_names($1) where appointment_id = any($2::uuid[])', [req.params.centerId, data.map((row: { id: string }) => row.id)]);
-    if (namesError) { res.status(500).json({ error: 'Could not load professional names' }); return; }
-    const byId = new Map((names as { appointment_id: string; display_name: string }[]).map(n => [n.appointment_id, n.display_name]));
-    res.json({ appointments: data.map((row: { id: string }) => ({ ...row, professional_name: byId.get(row.id) ?? null })), page, has_more: page * pageSize < count }); return;
-  }
-  res.json({ appointments: data, page, has_more: page * pageSize < count });
+  const appointments = await includeProfessionalNames(data);
+  if (!appointments) { res.status(500).json({ error: 'Could not load professional names' }); return; }
+  res.json({ appointments, page, has_more: page * pageSize < count });
 });
 
 router.patch('/centers/:centerId/appointments/:appointmentId', async (req, res) => {
