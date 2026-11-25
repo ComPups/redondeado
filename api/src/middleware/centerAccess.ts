@@ -9,7 +9,7 @@ export const requireCenterAccess: RequestHandler<{ centerId: string }> = async (
         const result = await client.query('select id from public.centers where id = $1', [req.params.centerId]);
         return result.rowCount ? 'platform_administrator' : null;
       }
-      const result = await client.query('select role from public.center_memberships where center_id = $1 and user_id = $2', [req.params.centerId, userId]);
+      const result = await client.query('select role from public.center_memberships where center_id = $1 and user_id = $2 and active', [req.params.centerId, userId]);
       return result.rows[0]?.role ?? null;
     });
     if (!role) { res.status(403).json({ error: 'Center access denied' }); return; }

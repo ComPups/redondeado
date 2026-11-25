@@ -1,3 +1,4 @@
+import { Team } from './backoffice/staff/Team';
 import { BrandLoader } from './shared/components/BrandLoader';
 import { LoadingSkeleton } from './shared/components/LoadingSkeleton';
 import { Agenda } from './backoffice/appointments/Agenda';
@@ -16,6 +17,7 @@ import { useEffect, useState } from 'react';
 
 export function Staff() {
   const location = useLocation();
+  const [platformCenterOpen, setPlatformCenterOpen] = useState(false);
   const centerPage = location.pathname === '/staff/centro';
   const servicesPage = location.pathname === '/staff/servicios';
   const { configured, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, updateCenterDetails, refreshCenters } = useStaffWorkspace();
@@ -30,10 +32,16 @@ export function Staff() {
   if (!platformResolved) return <BrandLoader />;
   if (platformError) return <BackofficeLayout page="platform" onSignOut={signOut}><p className="notice error" role="alert">{platformError}</p></BackofficeLayout>;
   if (centersLoading && !centers.length) return <BrandLoader />;
-  if (platformAdmin) return <BackofficeLayout page="platform" onSignOut={signOut}>
+  if (platformAdmin) return <BackofficeLayout page="platform" onSignOut={signOut} onCenters={() => setPlatformCenterOpen(false)}>
     {centersError && <p className="notice error" role="alert">{centersError}</p>}
     <div className="staff-context"><span>ADMINISTRACIÓN DE PLATAFORMA</span><button className="staff-signout" type="button" onClick={refreshCenters}>Actualizar centros</button></div>
-    <div id="centros"><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} /></div>
+    {platformCenterOpen && selectedCenter ? <>
+      <button type="button" className="staff-signout" onClick={() => setPlatformCenterOpen(false)}>← Volver a centros</button>
+      <section className="staff-section"><h1>{selectedCenter.centers.name}</h1><p>{selectedCenter.centers.description || 'Consulta la información de este centro.'}</p>
+        <ServiceCatalog key={selected} centerId={selected} token={session.access_token} canManage />
+        <div className="staff-section"><Team key={selected} centerId={selected} token={session.access_token} onMembershipChanged={refreshCenters} /></div>
+      </section>
+    </> : <div id="centros"><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} onSelect={id => { selectCenter(id); setPlatformCenterOpen(true); }} /></div>}
     <div id="registros" className="staff-admin"><PlatformAdmin token={session.access_token} onCreated={refreshCenters} /></div>
   </BackofficeLayout>;
   const roleLabel = { administrator: 'Administrador', member: 'Miembro', limited: 'Acceso limitado', platform_administrator: 'Administrador de plataforma' };
@@ -52,6 +60,7 @@ export function Staff() {
       {centerSaved && <p className="notice" role="status">Configuración guardada.</p>}
       {editingCenter && role === 'administrator' && selectedCenter && <CenterSettings key={`${selected}-settings`} center={selectedCenter.centers} token={session.access_token} onCancel={() => setEditingCenter(false)} onSaved={center => { updateCenterDetails(center); setEditingCenter(false); setCenterSaved(true); }} />}
       {role && <ServiceCatalog key={selected} centerId={selected} token={session.access_token} canManage={role === 'administrator'} />}
+      {role === 'administrator' && <div className="staff-section"><Team key={selected} centerId={selected} token={session.access_token} onMembershipChanged={refreshCenters} /></div>}
       {role === 'administrator' && <Agenda key={`${selected}-center`} scope="center" role={role} token={session.access_token} centerId={selected} apiUrl={apiUrl} />}
       </> : servicesPage ? <>
       {selectedCenter && <Services key={selected} centerId={selected} centerName={selectedCenter.centers.name} professionalName={displayName ?? 'Profesional'} token={session.access_token} canEdit={role === 'member' || role === 'administrator'} administrator={role === 'administrator'} />}</> : <>
