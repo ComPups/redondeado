@@ -1,3 +1,5 @@
+import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
+import { apiFetch } from '../../shared/requestCache';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Form, Modal } from 'react-bootstrap';
 import { BookingCalendar, type Slot } from '../../shared/components/BookingCalendar';
@@ -17,7 +19,7 @@ export function NewAppointment({ show, onClose, onCreated, centerId, token, apiU
     if (!show) return;
     const controller = new AbortController();
     setOptions(null); setService(''); setProfessional(''); setSlots([]); setSlot(''); setError('');
-    fetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/booking-options?scope=${scope}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+    apiFetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/booking-options?scope=${scope}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error(); return response.json(); })
       .then((data: Options) => { setOptions(data); if (data.professionals.length === 1) setProfessional(data.professionals[0].id); })
       .catch(() => { if (!controller.signal.aborted) setError('No se pudieron cargar los servicios y profesionales. Cierra e intenta nuevamente.'); });
@@ -35,7 +37,7 @@ export function NewAppointment({ show, onClose, onCreated, centerId, token, apiU
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setError('');
     try {
-      const response = await fetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ service_id: service, professional_id: professional, scope, starts_at: slot, patient_name: form.get('name'), patient_email: form.get('email'), patient_phone: form.get('phone') }) });
+      const response = await apiFetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ service_id: service, professional_id: professional, scope, starts_at: slot, patient_name: form.get('name'), patient_email: form.get('email'), patient_phone: form.get('phone') }) });
       if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || 'No se pudo crear la cita.'); }
       onClose(); onCreated();
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo crear la cita.'); }
@@ -43,7 +45,7 @@ export function NewAppointment({ show, onClose, onCreated, centerId, token, apiU
   }
   return <Modal show={show} onHide={busy ? undefined : onClose} centered><Modal.Header closeButton={!busy}><Modal.Title>Agendar una cita</Modal.Title></Modal.Header><Modal.Body>
     {error && <p className="notice error" role="alert">{error}</p>}
-    {!options ? !error && <p role="status">Cargando opciones…</p> : <Form id="new-appointment-form" className="appointment-form" onSubmit={submit}>
+    {!options ? !error && <LoadingSkeleton label="Cargando opciones…" rows={2} /> : <Form id="new-appointment-form" className="appointment-form" onSubmit={submit}>
       {scope === 'center' && <Form.Group><Form.Label htmlFor="new-professional">Profesional</Form.Label><Form.Select id="new-professional" required value={professional} onChange={e => { setProfessional(e.target.value); setService(''); }}><option value="">Selecciona un profesional</option>{options.professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</Form.Select></Form.Group>}
       <Form.Group><Form.Label htmlFor="new-service">Servicio</Form.Label><Form.Select id="new-service" required disabled={!professional} value={service} onChange={e => setService(e.target.value)}><option value="">Selecciona un servicio</option>{options.services.filter(s => s.professional_id === professional).map(s => <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes} min</option>)}</Form.Select></Form.Group>
       {scope === 'personal' && options.professionals.length === 0 && <p role="alert">No tienes un perfil profesional disponible para agendar en este centro.</p>}

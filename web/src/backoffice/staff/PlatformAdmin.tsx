@@ -1,3 +1,5 @@
+import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
+import { apiFetch } from '../../shared/requestCache';
 import { useEffect, useState } from 'react';
 import { apiUrl } from '../../shared/api';
 import { staffFetch } from './staffWorkspace';
@@ -33,13 +35,13 @@ export function PlatformAdmin({ token, onCreated }: { token: string; onCreated: 
       const changes = JSON.parse(new FormData(form).get('changes') as string);
       const id = entity === 'staff_profiles' ? record.professional_id : record.id;
       const target = entity === 'memberships' ? `${path}/${record.center_id}/${record.user_id}` : `${path}/${id}`;
-      const response = await fetch(`${apiUrl}${target}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
+      const response = await apiFetch(`${apiUrl}${target}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
       if (!response.ok) throw new Error('Update failed');
       setMessage('Record updated.'); setEditing(''); setRevision(v => v + 1); if (entity === 'centers') onCreated();
     } catch { setMessage('Could not save. Check the editable fields and values.'); }
   }
   if (fieldsError || !fields) return <section><h2>Platform administration</h2>
-    {fieldsError ? <p role="alert">Could not load editable fields.</p> : <p role="status">Loading editable fields…</p>}
+    {fieldsError ? <p role="alert">Could not load editable fields.</p> : <LoadingSkeleton label="Cargando configuración…" />}
   </section>;
 
   return <section><h2>Platform administration</h2>

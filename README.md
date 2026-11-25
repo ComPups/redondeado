@@ -74,6 +74,14 @@ The staff interface supports sign-in, center selection, a role-scoped appointmen
 
 To build for production, run `npm run build` in each directory. The built API can be started with `npm start` in `api/`. The API reads its optional `.env` file at startup. Vite reads its `.env` files automatically; only variables prefixed `VITE_` are exposed to browser code, so never put secrets in them.
 
+## Frontend loading and caching
+
+The browser shares successful API reads in a bounded, in-memory cache across client-side navigation. Public center profiles stay fresh for five minutes, staff catalogs/services/booking options for one minute, and appointment pages for 15 seconds. Keys include the full URL (including center, filters, scope and page) and request headers so staff sessions remain separate. Simultaneous readers share one request; unmounting one reader does not cancel the others.
+
+Writes invalidate the cache before and after the request. Signing out, changing accounts, and “Actualizar centros” clear it too. Access checks, booking availability and terms always use the server; changed-price recovery also bypasses the cache. Errors are never cached. Nothing is saved to local storage, so a full reload starts fresh and patient data remains session-only. The cache policy lives in `web/src/shared/requestCache.ts`.
+
+Public pages and staff lists/calendars use shared skeletons while data loads, with screen-reader status text and reduced-motion support. Staff code is loaded separately when entering `/staff`.
+
 ## Demo staff identities
 
 A local `supabase db reset` applies the migrations and seeds the fictional Centro Bienestar Arrayán. **Reset deletes local database data.** The four fictional accounts share the local demo password `Demo-Arrayan-2026!`:

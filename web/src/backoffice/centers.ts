@@ -1,3 +1,4 @@
+import { apiFetch } from '../shared/requestCache';
 import { apiUrl } from '../shared/api';
 
 export type Center = { id: string; name: string; slug: string; description: string; opens_at: string; closes_at: string };
@@ -10,7 +11,7 @@ async function readResponse(response: Response): Promise<unknown> {
 }
 
 export async function createCenter(token: string, input: CenterInput): Promise<Center> {
-  return await readResponse(await fetch(`${apiUrl}/staff/platform/centers`, {
+  return await readResponse(await apiFetch(`${apiUrl}/staff/platform/centers`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(input),
   })) as Center;
 }

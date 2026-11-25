@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from '../shared/components/LoadingSkeleton';
 import { Link } from 'react-router';
 import { PublicHeader, ServiceList } from './PublicComponents';
 import { demoCenterName, demoCenterSlug, useCenterProfile } from './centerProfile';
@@ -44,10 +45,10 @@ export function PublicHome() {
             </div>
             <div className="catalog-preview" aria-busy={result.status === 'loading'}>
               <h3>Servicios del centro</h3>
-              {center?.services.length ? (
+              {result.status === 'loading' ? <LoadingSkeleton label="Cargando servicios…" /> : center?.services.length ? (
                 <ServiceList services={center.services.slice(0, 3)} />
               ) : (
-                <p role="status">{center ? 'El centro aún no tiene servicios disponibles.' : result.status === 'loading' ? 'Cargando servicios…' : 'La vista previa de servicios no está disponible en este momento.'}</p>
+                <p role="status">{center ? 'El centro aún no tiene servicios disponibles.' : 'La vista previa de servicios no está disponible en este momento.'}</p>
               )}
             </div>
           </div>

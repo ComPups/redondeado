@@ -1,3 +1,4 @@
+import { apiFetch } from '../shared/requestCache';
 import { apiUrl } from '../shared/api';
 import { useEffect, useState } from 'react';
 
@@ -43,12 +44,13 @@ export function useCenterProfile(slug: string): ProfileResult {
   const [request, setRequest] = useState<{ slug: string; result: ProfileResult }>();
 
   useEffect(() => {
+    if (!slug) return;
     const controller = new AbortController();
 
     const load = async () => {
       let result: ProfileResult;
       try {
-        const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}`, { signal: controller.signal });
+        const response = await apiFetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}`, { signal: controller.signal });
         if (response.status === 404) result = { status: 'missing' };
         else if (!response.ok) throw new Error('Could not load center');
         else result = { status: 'ready', profile: await response.json() };
