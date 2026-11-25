@@ -2,10 +2,8 @@
 
 The existing public, staff and platform routes use parameterized Postgres through
 `createDatabase().transaction`; Supabase Auth remains responsible for sign-in,
-refresh, sign-out and server-side token verification. This branch is not ready
-for deployment or a PR: the final service CRUD endpoints are being developed in
-another worktree and must be integrated and tested here, and the full isolation
-and hosted verification matrix remains outstanding.
+refresh, sign-out and server-side token verification. Service CRUD is being developed separately after this migration and must adopt
+the interface below. Hosted verification remains a deployment step.
 
 Service CRUD must call `transaction` with the staff user ID obtained from
 server-verified Auth, issue parameterized SQL through its callback client, and
@@ -50,21 +48,60 @@ denial checks. `supabase/config.toml` only disables local PostgREST. It does not
 change the hosted project. The migration retains existing service-role grants
 for rollback; re-enable the hosted Data API before rolling back to the old API,
 which also requires its previous service-role secret. Do not disable the hosted
-Data API until service CRUD integration and the acceptance gates pass.
+Data API until the deployed backend and its applicable endpoints pass verification.
 
-## Evidence and remaining gates
+## Security-definer audit
 
-An isolated local stack with branch migrations and Data API disabled passed the
-existing 100 SQL checks, API build, Auth/staff/platform/availability/terms HTTP
-checks, public booking and table/RPC/GraphQL denial checks. The runtime login was
-used for pooled identity reuse, rollback, timeout, public-role table denial and
-unfiltered RLS read checks for two seeded staff users. The frontend build and 21
-tests passed. No hosted setting or verification has been changed or performed.
+The fresh local database has 12 application SECURITY DEFINER functions, all
+owned by `postgres`, with empty search paths and no EXECUTE grant to PUBLIC.
+Their purposes and authorization are:
 
-Still required: integrate final service CRUD; test successful and forbidden
-writes, deletions, bookings and reassignment across two ordinary same-center
-staff and different centers, including all admin
-permissions; verify acceptance rows and booking atomicity; test pooled reuse
-under concurrent failures; audit all definer functions and effective grants;
-run all checks against a fresh isolated
-stack. Record hosted denial and Auth/REST evidence separately after rollout.
+- `private.center_profile` returns the public catalog projection; only the
+  public operation role and the legacy service role can execute it. Its invoker
+  wrapper uses the same grants. Public availability and terms expose only
+  booking projections, and `book_public_appointment` checks selection, slot,
+  patient details and exact accepted terms before atomically writing the booking
+  and acceptances. These public operations are granted to the public operation
+  role and the legacy service role, not to `authenticated` or `anon`.
+- `staff_display_name` and `staff_own_professional_id` return only the identity
+  associated with `auth.uid()`. `appointment_professional_names`,
+  `staff_booking_professionals` and `staff_booking_terms` check the caller's
+  identity and applicable membership or platform-administrator status.
+- `book_staff_appointment` delegates professional authorization to
+  `staff_booking_professionals` before validating and writing. `manage_booking_terms`
+  checks membership and scope before changing version pointers. Both are granted
+  to `authenticated`, plus the legacy service role for compatibility.
+- `private.validate_staff_appointment_update` is a trigger, not callable by
+  application roles. It prevents staff reassignment and constrains schedule
+  changes; the trigger retains its existing trusted-operation behavior.
+
+The runtime login has no table ownership, superuser or BYPASSRLS capability; it
+cannot assume `service_role`. The public operation role has no application table
+privileges. Automated checks assert these properties and function grant/search
+path constraints. Security Advisor reported no issues on the local stack. Re-run
+this audit if later migrations, including service CRUD, add privileged functions.
+
+## Local evidence
+
+A fresh isolated stack was started with this branch's migrations and `[api]
+enabled = false`; no shared development database was reset. CLI version 3.3.0
+ran `supabase test db` (120 assertions across 10 files) and
+`supabase db advisors --type security` (no issues). The API build passed.
+Using the dedicated runtime login and two pool connections,
+`node test/db-transaction.mjs` and `node test/db-concurrency.mjs` passed reuse,
+identity isolation, timeouts and concurrent failure/rollback checks.
+
+Against that stack, these API scripts passed sequentially:
+`staff.mjs`, `staff-availability.mjs`, `booking-terms.mjs`,
+`staff-appointments-routes.mjs`, `staff-isolation.mjs` and
+`data-api-disabled.mjs`. They cover Auth, staff and platform operations, two
+ordinary same-center staff and a different center, limited and administrator
+roles, denied reads/writes/bookings, successful staff and public bookings,
+booking acceptance records and duplicate booking, invalid/forged/expired
+tokens, and table/RPC/GraphQL denial. HTTP fixture tests require isolated local
+admin credentials; see their environment checks. Frontend build and 21 tests
+also passed. No hosted setting or verification has been changed or performed.
+
+After hosted deployment, record the separate hosted Data API, Auth, and REST
+evidence. Run the same authorization and contract checks for service CRUD when
+it is integrated later.
