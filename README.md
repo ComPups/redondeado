@@ -29,7 +29,7 @@ supabase status
 
 The first start downloads the service images and applies the migrations and local demo seed. The CLI prints the local Auth URL (`http://127.0.0.1:54321`), the Postgres connection on port `54322`, and [Studio](http://127.0.0.1:54323). Use `supabase stop` when you are done.
 
-The API uses Postgres directly with transaction-scoped roles and RLS; Supabase Auth still handles staff sign-in and token verification. Local PostgREST is disabled in `supabase/config.toml`. This does not change the hosted Data API setting. Hosted migrations and rollout are described in [database migration and rollout](api/DATABASE-MIGRATION.md).
+The API uses Postgres directly with transaction-scoped roles and RLS; Supabase Auth still handles staff sign-in and token verification. Local PostgREST is disabled in `supabase/config.toml`. This does not change the hosted Data API setting.
 
 
 ## Run locally
@@ -67,12 +67,27 @@ npm --prefix web run dev
 
 Open the landing page at http://localhost:5173/, the demo center at http://localhost:5173/centro-bienestar-arrayan, or staff sign-in at http://localhost:5173/staff/login. The API defaults to port 3000. For another worktree, use the alternate-port commands below.
 
-To connect to a hosted Supabase project, configure its Auth URL, publishable key, restricted runtime database URL, and verified TLS certificate in the local environment files. Use separate credentials for migrations; see [database migration and rollout](api/DATABASE-MIGRATION.md) for the connection settings and deployment order.
+To connect to a hosted Supabase project, configure its Auth URL, publishable key, restricted runtime database URL, and verified TLS certificate in the local environment files. Use separate credentials for migrations.
 
 
 The staff interface supports sign-in, center selection, a role-scoped appointment agenda with contact details, manual booking, editing, rescheduling and deletion. Administrators can book for center professionals; members can book for themselves, and limited users have read-only access. Manual bookings use the public booking availability and validation rules. Center administrators see their center's appointments; members and limited staff see their own. Platform administrators can create centers and edit center, service, appointment, profile and membership records across centers. The platform editor is an initial JSON-based interface; changes remain subject to database constraints. The public profile lets patients book in the current and next calendar months in America/Santiago, with start times every 30 minutes during center hours. Center administrators manage the shared service catalog. Professionals choose which services to offer and set their own prices and durations; removing an offering does not affect colleagues. Bookings retain the agreed price, service name and duration. [COM-11](https://linear.app/compups/issue/COM-11) and [COM-12](https://linear.app/compups/issue/COM-12) will add settings and fuller appointment management. The `staff` slug is reserved for staff routes. Production hosting must rewrite frontend paths to `index.html` for direct navigation and refresh.
 
 To build for production, run `npm run build` in each directory. The built API can be started with `npm start` in `api/`. The API reads its optional `.env` file at startup. Vite reads its `.env` files automatically; only variables prefixed `VITE_` are exposed to browser code, so never put secrets in them.
+
+## Equipo staff provisioning
+
+Configure `SUPABASE_SECRET_KEY` in the **API environment only**, using the local service-role key or a hosted Supabase secret key. The publishable key continues to verify staff tokens; privileged Auth account administration is isolated to the server. Never place this key in a `VITE_` variable. Without it, existing staff can still list and edit memberships, but creating a staff account returns a configuration error.
+
+Center administrators manage only their own center from Equipo under Mi centro. Platform administrators select any center and use the same Equipo UI; this UI never grants platform administrator privileges. Staff are created manually with name, email, password, role (member by default), and selected active center services. Auth confirms the email immediately, so the new person can sign in without invitations, acceptance pages, email delivery, or a pending lifecycle. Selected service prices and durations are copied as initial snapshots and remain editable by the professional.
+
+An existing Auth email returns a clear conflict and is never attached to an unrelated account or used to overwrite credentials. The API accepts an idempotency key and compensates by deleting the newly-created Auth user if application SQL provisioning fails; retries with the same key return the completed membership. Passwords are sent only to server-side Auth administration and are never logged, returned, or stored in application tables. An existing inactive membership must be reactivated rather than recreated. The final active center administrator cannot be demoted or deactivated, including through the platform record editor or concurrent requests; deactivation warns about upcoming appointments and preserves them.
+
+Validation:
+
+- `npm --prefix api run build` and `npm --prefix web run build`.
+- `npm --prefix web test` includes Equipo creation, service selection, appointment warnings, and role/deactivation coverage.
+- `supabase/tests/team.sql` covers manual provisioning, copied snapshots, idempotent retries, role isolation, inactive memberships, and last-admin protection.
+- In a **disposable migrated and seeded database whose name includes `equipo_validation`**, run `(cd api && TEAM_TEST_DATABASE_URL='<owner connection string>' node --import tsx test/team.mjs)`. It creates fictional fixtures, tests HTTP routes and competing transactions, and mocks all Auth mail operations. It intentionally leaves its fixtures in that disposable database.
 
 ## Demo staff identities
 
@@ -90,7 +105,7 @@ These credentials are public and only for development; do not use this seed for 
 
 The demo center is open daily from 09:00 to 18:00 in `America/Santiago`, with three services priced in CLP and three fictional appointments. Appointments fall in the current month and can be in the past near month-end. Existing bookings retain their service name and end time when a service changes; deactivate services to remove them from the catalog. The database prevents overlapping appointments for the same professional, including across centers.
 
-Services expose only active catalog data publicly. Public booking functions expose catalog details and availability without patient records; the database validates booking details and prevents overlaps. Appointment access is constrained by membership or the separate platform administrator role through row-level security. Platform roles must be provisioned by a trusted operator; clients cannot assign them. Auth account administration and the center administrator's settings interface are not implemented yet.
+Services expose only active catalog data publicly. Public booking functions expose catalog details and availability without patient records; the database validates booking details and prevents overlaps. Appointment access is constrained by membership or the separate platform administrator role through row-level security. Platform roles must be provisioned by a trusted operator; clients cannot assign them. Center administrators manage staff access through Equipo; platform administrators select a center in the Equipo section. Deactivating a membership removes center access and new booking availability while preserving appointments, offerings, the shared profile, and other center memberships.
 
 Run `supabase test db` after the local database is migrated and seeded. The authorization test creates its own fictional two-center fixtures inside a rolled-back transaction. This command needs the local Supabase stack and works without either application's `.env`.
 
