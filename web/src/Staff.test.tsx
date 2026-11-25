@@ -125,7 +125,7 @@ describe('staff workspace through the screen', () => {
   });
   it('opens manual booking with the center options', async () => {
     await signIn('member');
-    fireEvent.click(screen.getByRole('button', { name: '+ Agendar cita' }));
+    fireEvent.click(await screen.findByRole('button', { name: '+ Agendar cita' }));
     expect(await screen.findByRole('dialog')).toBeTruthy();
     expect(await screen.findByRole('option', { name: 'Consulta · 60 min' })).toBeTruthy();
     expect(screen.queryByLabelText('Profesional')).toBeNull();
@@ -133,7 +133,7 @@ describe('staff workspace through the screen', () => {
   it('lets administrators select a professional when booking from the center page', async () => {
     await signIn('administrator');
     fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
-    fireEvent.click(screen.getByRole('button', { name: '+ Agendar cita' }));
+    fireEvent.click(await screen.findByRole('button', { name: '+ Agendar cita' }));
     expect(await screen.findByRole('option', { name: 'Camila' })).toBeTruthy();
     expect(screen.getByLabelText('Profesional')).toBeTruthy();
   });

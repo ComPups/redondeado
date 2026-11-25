@@ -191,3 +191,16 @@ it('requires patients to refresh and review a changed price before booking', asy
   expect(JSON.parse(calls[0][1].body).expected_price_clp).toBe(35000);
   expect(JSON.parse(calls[1][1].body).expected_price_clp).toBe(42000);
 });
+
+it('shows a layout skeleton until the center profile is available', async () => {
+  let finish!: (response: Response) => void;
+  request.mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
+  render(<MemoryRouter initialEntries={['/arrayan']}><Routes><Route path="/:slug" element={<PublicCenterView />} /></Routes></MemoryRouter>);
+  const loading = screen.getByRole('status');
+  expect(loading.textContent).toContain('Cargando centro');
+  expect(loading.getAttribute('aria-busy')).toBe('true');
+  expect(document.querySelector('.skeleton-image')).toBeTruthy();
+  finish(new Response(JSON.stringify(profile)));
+  await screen.findByRole('heading', { name: 'Centro Arrayán' });
+  expect(screen.queryByRole('status')).toBeNull();
+});

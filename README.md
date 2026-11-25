@@ -67,12 +67,22 @@ npm --prefix web run dev
 
 Open the landing page at http://localhost:5173/, the demo center at http://localhost:5173/centro-bienestar-arrayan, or staff sign-in at http://localhost:5173/staff/login. The API defaults to port 3000. For another worktree, use the alternate-port commands below.
 
+To run the frontend against the production API, use `npm --prefix web run dev:prod` and open http://localhost:5173/centro-bienestar-arrayan. Vite proxies `/api` requests to production; no local API is needed. For staff sign-in, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the production project's URL and publishable key in `web/.env.local`. This command uses production data, and actions can change it. Use only a publishable (or legacy anon) key in frontend environment files, never a secret or service-role key.
+
 To connect to a hosted Supabase project, configure its Auth URL, publishable key, restricted runtime database URL, and verified TLS certificate in the local environment files. Use separate credentials for migrations; see [database migration and rollout](api/DATABASE-MIGRATION.md) for the connection settings and deployment order.
 
 
 The staff interface supports sign-in, center selection, a role-scoped appointment agenda with contact details, manual booking, editing, rescheduling and deletion. Administrators can book for center professionals; members can book for themselves, and limited users have read-only access. Manual bookings use the public booking availability and validation rules. Center administrators see their center's appointments; members and limited staff see their own. Platform administrators can create centers and edit center, service, appointment, profile and membership records across centers. The platform editor is an initial JSON-based interface; changes remain subject to database constraints. The public profile lets patients book in the current and next calendar months in America/Santiago, with start times every 30 minutes during center hours. Center administrators manage the shared service catalog. Professionals choose which services to offer and set their own prices and durations; removing an offering does not affect colleagues. Bookings retain the agreed price, service name and duration. [COM-11](https://linear.app/compups/issue/COM-11) and [COM-12](https://linear.app/compups/issue/COM-12) will add settings and fuller appointment management. The `staff` slug is reserved for staff routes. Production hosting must rewrite frontend paths to `index.html` for direct navigation and refresh.
 
 To build for production, run `npm run build` in each directory. The built API can be started with `npm start` in `api/`. The API reads its optional `.env` file at startup. Vite reads its `.env` files automatically; only variables prefixed `VITE_` are exposed to browser code, so never put secrets in them.
+
+## Frontend loading and caching
+
+The browser shares successful API reads in a bounded, in-memory cache across client-side navigation. Public center profiles stay fresh for five minutes, staff catalogs/services/booking options for one minute, and appointment pages for 15 seconds. Keys include the full URL (including center, filters, scope and page) and request headers so staff sessions remain separate. Simultaneous readers share one request; unmounting one reader does not cancel the others.
+
+Writes invalidate the cache before and after the request. Signing out, changing accounts, and “Actualizar centros” clear it too. Access checks, booking availability and terms always use the server; changed-price recovery also bypasses the cache. Errors are never cached. Nothing is saved to local storage, so a full reload starts fresh and patient data remains session-only. The cache policy lives in `web/src/shared/requestCache.ts`.
+
+Public pages and staff lists/calendars use shared skeletons while data loads, with screen-reader status text and reduced-motion support. Staff code is loaded separately when entering `/staff`.
 
 ## Demo staff identities
 

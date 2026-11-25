@@ -1,3 +1,4 @@
+import { clearRequestCache } from '../../shared/requestCache';
 import { createClient, type Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../shared/api';
@@ -43,6 +44,7 @@ export function useStaffWorkspace() {
     clearCenter(); selectedRef.current = id; setSelected(id);
   }, [clearCenter]);
   const clearWorkspace = useCallback(() => {
+    clearRequestCache();
     authVersion.current++; clearCenter(); selectedRef.current = ''; setSelected('');
     centersRef.current = []; setCenters([]); setCentersLoading(false); setPlatformAdmin(false); setPlatformResolved(false); setDisplayName(null); setCentersError(''); setPlatformError('');
   }, [clearCenter]);
@@ -106,5 +108,5 @@ export function useStaffWorkspace() {
     setSigningOut(true); clearWorkspace(); sessionUser.current = null; setSession(null);
     void supabase?.auth.signOut({ scope: 'local' }).catch(() => {}).finally(() => setSigningOut(false));
   }
-  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, refreshCenters: () => setRevision(v => v + 1) };
+  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, refreshCenters: () => { clearRequestCache(); setRevision(v => v + 1); } };
 }
