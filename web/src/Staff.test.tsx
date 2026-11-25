@@ -41,7 +41,7 @@ function mockApi() {
     if (path === '/staff/platform/centers') return response([{ id: 'a', name: 'Center A', image_url: null }]);
     if (path === '/staff/centers/a') return response({ role: auth.role }, !failRole);
     if (path === '/staff/centers/b') return response({ role: auth.role });
-    if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60 }] });
+    if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60, professional_id: 'p' }] });
     if (path === '/staff/centers/a/appointments') return pendingAgenda ? pendingAgenda.promise : response(agenda(appointment('A')));
     if (path === '/staff/centers/b/appointments') return response(agenda(appointment('B')));
     throw new Error(`Unexpected request ${path}`);

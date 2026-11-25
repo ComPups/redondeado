@@ -6,8 +6,8 @@ import { CentersView } from './backoffice/views/CentersView';
 import { BackofficeLayout } from './backoffice/components/BackofficeLayout';
 import { PlatformAdmin } from './backoffice/staff/PlatformAdmin';
 import { useStaffWorkspace } from './backoffice/staff/staffWorkspace';
-import { BookingTermsEditor } from './backoffice/staff/BookingTermsEditor';
-import { formatPrice, useCenterProfile } from './public/centerProfile';
+import { Services } from './backoffice/services/Services';
+import { useCenterProfile } from './public/centerProfile';
 
 export function Staff() {
   const location = useLocation();
@@ -42,9 +42,7 @@ export function Staff() {
       </section>
       {role === 'administrator' && <Agenda key={`${selected}-center`} scope="center" role={role} token={session.access_token} centerId={selected} apiUrl={apiUrl} />}
       </> : servicesPage ? <>
-      <section className="staff-section staff-page-section" id="servicios"><div className="section-heading"><div><p className="eyebrow">CATÁLOGO DEL CENTRO</p><h1>Servicios ofrecidos</h1><p>Todos los profesionales ofrecen estos servicios.</p></div>{profile && <span className="count">{profile.services.length}</span>}</div>
-        {profileResult.status === 'loading' ? <div className="empty" role="status">Cargando servicios…</div> : !profile ? <div className="empty" role="alert">No pudimos cargar los servicios.</div> : profile.services.length ? <div className="staff-list">{profile.services.map(service => <article className="staff-row" key={service.id}><div className="staff-row-icon" aria-hidden="true">✳︎</div><div><h3>{service.name}</h3><p>{service.duration_minutes} minutos</p></div><strong>{formatPrice(service.price_clp)}</strong></article>)}</div> : <div className="empty">Este centro aún no tiene servicios disponibles.</div>}
-      </section>{profile && selectedCenter && (role === 'member' || role === 'administrator') && <BookingTermsEditor key={selected} centerId={selected} token={session.access_token} centerName={selectedCenter.centers.name} professionalName={displayName ?? "Profesional"} services={profile.services} administrator={role === "administrator"} />}</> : <>
+      {selectedCenter && <Services key={selected} centerId={selected} centerName={selectedCenter.centers.name} professionalName={displayName ?? 'Profesional'} token={session.access_token} canEdit={role === 'member' || role === 'administrator'} administrator={role === 'administrator'} />}</> : <>
       <div className="staff-welcome"><p className="eyebrow">TU ESPACIO DE TRABAJO</p><h1>{displayName ? `¡Hola, ${displayName.split(/\s+/)[0]}!` : '¡Hola!'}</h1><p>Revisa la agenda y los servicios de {selectedCenter?.centers.name}.</p></div>
       <Agenda key={`${selected}-personal`} role={role ?? 'limited'} token={session.access_token} centerId={selected} apiUrl={apiUrl} />
       </>}

@@ -6,6 +6,10 @@ export const demoCenterName = 'Centro Bienestar Arrayán';
 
 export type Service = {
   id: string;
+  professional_id?: string;
+  concept_id?: string;
+  concept_name?: string;
+  concept_description?: string;
   name: string;
   description?: string;
   price_clp: number;
@@ -16,6 +20,7 @@ export type Professional = {
   id: string;
   name: string;
   description?: string;
+  service_ids?: string[];
 };
 
 export type CenterProfile = {
