@@ -50,6 +50,9 @@ try {
     const result = await admin.query('select a.id, count(t.version_id)::int as accepted from public.appointments a left join public.appointment_terms_acceptances t on t.appointment_id = a.id where a.patient_email = $1 group by a.id', [email]);
     assert.equal(result.rows.length, 1);
     assert.equal(result.rows[0].accepted, terms.length);
-  } finally { await admin.end(); }
+  } finally {
+    await admin.query('delete from public.appointments where patient_email = $1', [email]);
+    await admin.end();
+  }
   console.log('Auth, Data API denial and public booking checks passed');
 } finally { await client.auth.signOut(); }
