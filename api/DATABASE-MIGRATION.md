@@ -82,7 +82,7 @@ privileges. Automated checks assert these properties and function grant/search
 path constraints. Security Advisor reported no issues on the local stack. Re-run
 this audit if later migrations, including service CRUD, add privileged functions.
 
-## Local evidence
+## Verification evidence
 
 A fresh isolated stack was started with this branch's migrations and `[api]
 enabled = false`; no shared development database was reset. CLI version 3.3.0
@@ -101,11 +101,24 @@ roles, denied reads/writes/bookings, successful staff and public bookings,
 booking acceptance records and duplicate booking, invalid/forged/expired
 tokens, and table/RPC/GraphQL denial. HTTP fixture tests require isolated local
 admin credentials; see their environment checks. Frontend build and 21 tests
-also passed. The development project has the migrations applied and a verified
-TLS connection using the restricted runtime login. Its Data API remains enabled:
-the hosted security advisor flags authenticated SECURITY DEFINER functions
-exposed through it. Disable the hosted Data API only after the deployed API is
-verified, then repeat Auth, REST, table, RPC and GraphQL checks.
+also passed.
+
+Hosted development project, 25 November 2026:
+
+- `supabase migration list --remote=ayiwjpbqedrrllcxonns` confirmed all 21
+  migrations applied. The fictional demo seed was loaded separately at the
+  user's request; its publicly documented passwords are for development only.
+- A local API connected using the restricted runtime login and verified TLS.
+  `curl http://localhost:3014/health` and
+  `curl http://localhost:3014/public/centers/centro-bienestar-arrayan` returned
+  HTTP 200. Supabase Auth sign-in and the corresponding API role checks passed
+  for the center administrator, member, limited user and platform administrator.
+- `supabase db advisors --remote=ayiwjpbqedrrllcxonns --type security` reported
+  warnings for authenticated SECURITY DEFINER functions exposed through the
+  still-enabled Data API. Hosted Data API shutdown has not been performed.
+
+Disable the hosted Data API only after the deployed API is verified, then repeat
+Auth, REST, table, RPC and GraphQL checks.
 
 After hosted deployment, record the separate hosted Data API denial, Auth, and
 REST evidence. Run the same authorization and contract checks for service CRUD
