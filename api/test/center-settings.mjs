@@ -22,7 +22,7 @@ async function login(email) {
   const { data, error } = await client.auth.signInWithPassword({ email, password: 'Demo-Arrayan-2026!' });
   assert.ifError(error); return data.session.access_token;
 }
-const request = (path, token, method = 'GET', body) => fetch(`${api}${path}`, { method, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
+const request = (path, token, method = 'GET', body) => fetch(`${api}${path}`, { method, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
 let original; let admin;
 try {
   admin = await login('camila.rojas@example.com');
@@ -34,6 +34,8 @@ try {
   const path = `/staff/centers/${centerId}`;
   assert.equal((await request(path, null, 'PATCH', original)).status, 401);
   for (const token of [member, limited]) assert.equal((await request(path, token, 'PATCH', original)).status, 403);
+  assert.equal((await request(path, admin, 'PATCH')).status, 400);
+  assert.equal((await request(path, admin, 'PATCH', null)).status, 400);
   for (const invalid of [{ name: ' ' }, { name: 'a'.repeat(121) }, { description: 'a'.repeat(401) }, { opens_at: '25:00' }, { closes_at: original.opens_at }, { opens_at: '20:00', closes_at: '09:00' }, { slug: 'changed' }, { image_url: 'https://example.com/a.jpg' }]) {
     assert.equal((await request(path, admin, 'PATCH', { ...original, ...invalid })).status, 400);
   }

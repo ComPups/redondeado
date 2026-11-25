@@ -38,7 +38,10 @@ router.get('/centers/:centerId', (req, res) => {
 
 router.patch('/centers/:centerId', async (req, res) => {
   if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
-  const { name, description, opens_at, closes_at } = req.body ?? {};
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    res.status(400).json({ error: 'Revisa el nombre, la descripción y los horarios del centro.' }); return;
+  }
+  const { name, description, opens_at, closes_at } = req.body;
   const time = /^([01]\d|2[0-3]):[0-5]\d$/;
   if (typeof name !== 'string' || !name.trim() || name.trim().length > 120 ||
     typeof description !== 'string' || description.length > 400 ||
