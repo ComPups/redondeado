@@ -8,7 +8,7 @@ export type DatabaseIdentity = { kind: 'staff'; userId: string } | { kind: 'publ
 export function createDatabase(config: PoolConfig, statementTimeoutMs: number) {
   if (!Number.isSafeInteger(statementTimeoutMs) || statementTimeoutMs <= 0) throw new Error('Invalid statement timeout');
   if (!config.max || !Number.isSafeInteger(config.max) || config.max < 1) throw new Error('A bounded database pool is required');
-  if (!config.connectionTimeoutMillis || config.connectionTimeoutMillis < 1) throw new Error('A database acquisition timeout is required');
+  if (!Number.isSafeInteger(config.connectionTimeoutMillis) || !config.connectionTimeoutMillis || config.connectionTimeoutMillis < 1) throw new Error('A database acquisition timeout is required');
   const pool = new pg.Pool(config);
   // Idle client errors must not terminate the process without explanation.
   pool.on('error', error => console.error('Idle database connection failed', error));

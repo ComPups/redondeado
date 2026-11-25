@@ -7,6 +7,7 @@ grant authenticated, redondeado_public to redondeado_api;
 -- Public access is limited to the existing booking projections and operation.
 -- Keep service_role grants during the compatibility window for rollback.
 grant usage on schema public, private to redondeado_public;
+revoke execute on function private.center_profile(text) from public, anon, authenticated;
 grant execute on function private.center_profile(text) to redondeado_public;
 grant execute on function public.public_center_profile(text),
   public.public_availability(text, uuid, uuid),
