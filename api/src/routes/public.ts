@@ -26,7 +26,7 @@ export function publicRoutes(db: Database) {
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (typeof service !== 'string' || !uuid.test(service) || typeof professional !== 'string' || !uuid.test(professional)) { res.status(400).json({ error: 'Invalid selection' }); return; }
     try {
-      const data = await db.transaction(publicIdentity, async client => (await client.query('select * from public.public_booking_terms($1, $2, $3)', [req.params.slug, service, professional])).rows);
+      const data = await db.transaction(publicIdentity, async client => (await client.query('select * from public.public_booking_terms($1, $2, $3) limit 1000', [req.params.slug, service, professional])).rows);
       res.json(data);
     } catch { res.status(500).json({ error: 'Could not load terms' }); }
   });

@@ -46,7 +46,7 @@ router.get('/platform/editable-fields', (_req, res) => {
 router.get('/platform/:entity', async (req, res) => {
   const config = editable.get(req.params.entity);
   if (!config) { res.status(404).json({ error: 'Unknown entity' }); return; }
-  const { data, error } = await query(res, `select ${selectFields(config)} from public.${req.params.entity}`);
+  const { data, error } = await query(res, `select ${selectFields(config)} from public.${req.params.entity} limit 1000`);
   if (error) { res.status(500).json({ error: 'Could not load records' }); return; }
   res.json(data);
 });
@@ -67,7 +67,7 @@ router.patch('/platform/:entity/:id', async (req, res) => {
 });
 
 router.get('/platform-memberships', async (_req, res) => {
-  const { data, error } = await query(res, 'select center_id, user_id, role from public.center_memberships');
+  const { data, error } = await query(res, 'select center_id, user_id, role from public.center_memberships limit 1000');
   if (error) { res.status(500).json({ error: 'Could not load memberships' }); return; }
   res.json(data);
 });

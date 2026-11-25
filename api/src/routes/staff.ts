@@ -21,11 +21,11 @@ router.get('/me', async (_req, res) => {
 router.get('/centers', async (_req, res) => {
   const { userId, platformAdmin } = res.locals.staff;
   if (platformAdmin) {
-    const { data, error } = await query(res, 'select id, name, slug, description, opens_at, closes_at from public.centers');
+    const { data, error } = await query(res, 'select id, name, slug, description, opens_at, closes_at from public.centers limit 1000');
     if (error) { res.status(500).json({ error: 'Could not load centers' }); return; }
     res.json(data.map((center: { id: string; name: string; slug: string; description: string; opens_at: string; closes_at: string }) => ({ center_id: center.id, role: 'platform_administrator', centers: center }))); return;
   }
-  const { data, error } = await query(res, `select m.center_id, m.role, json_build_object('id', c.id, 'name', c.name, 'slug', c.slug, 'description', c.description, 'opens_at', c.opens_at, 'closes_at', c.closes_at) as centers from public.center_memberships m left join public.centers c on c.id = m.center_id where m.user_id = $1`, [userId]);
+  const { data, error } = await query(res, `select m.center_id, m.role, json_build_object('id', c.id, 'name', c.name, 'slug', c.slug, 'description', c.description, 'opens_at', c.opens_at, 'closes_at', c.closes_at) as centers from public.center_memberships m left join public.centers c on c.id = m.center_id where m.user_id = $1 limit 1000`, [userId]);
   if (error) { res.status(500).json({ error: 'Could not load centers' }); return; }
   res.json(data);
 });
@@ -96,8 +96,8 @@ router.delete('/centers/:centerId/appointments/:appointmentId', async (req, res)
 router.get('/centers/:centerId/booking-options', async (req, res) => {
   if (res.locals.role === 'limited') { res.status(403).json({ error: 'Acceso de solo lectura.' }); return; }
   const [professionals, services] = await Promise.all([
-    query(res, 'select * from public.staff_booking_professionals($1)', [req.params.centerId]),
-    query(res, 'select id, name, duration_minutes from public.services where center_id = $1 and active order by name', [req.params.centerId]),
+    query(res, 'select * from public.staff_booking_professionals($1) limit 1000', [req.params.centerId]),
+    query(res, 'select id, name, duration_minutes from public.services where center_id = $1 and active order by name limit 1000', [req.params.centerId]),
   ]);
   if (professionals.error || services.error) { res.status(500).json({ error: 'No se pudieron cargar los servicios y profesionales.' }); return; }
   let availableProfessionals = professionals.data;
@@ -151,7 +151,7 @@ const termsScope = (scope: string) => scope === 'center' ? null : scope;
 const validTermsScope = (scope: string) => scope === 'center' || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scope);
 
 router.get('/centers/:centerId/terms', async (req, res) => {
-  const { data, error } = await query(res, 'select * from public.staff_booking_terms($1)', [req.params.centerId]);
+  const { data, error } = await query(res, 'select * from public.staff_booking_terms($1) limit 1000', [req.params.centerId]);
   if (error) { res.status(500).json({ error: 'Could not load terms' }); return; }
   res.json(data);
 });
