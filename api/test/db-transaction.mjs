@@ -22,6 +22,18 @@ try {
   const c = await db.transaction(staff(second), inspect);
   assert.equal(c.uid, second);
   assert.equal(c.pid, a.pid);
+  const publicContext = await db.transaction({ kind: 'public' }, async client => (await client.query("select current_user, nullif(current_setting('request.jwt.claims', true), '')::jsonb->>'sub' as uid, pg_backend_pid() as pid")).rows[0]);
+  assert.equal(publicContext.current_user, 'redondeado_public');
+  assert.equal(publicContext.uid, null);
+  assert.equal(publicContext.pid, a.pid);
+  await assert.rejects(db.transaction({ kind: 'public' }, client => client.query('select * from public.appointments')), /permission denied/);
+  const member = '20000000-0000-4000-8000-000000000002';
+  const limited = '20000000-0000-4000-8000-000000000003';
+  for (const userId of [member, limited]) {
+    const visible = await db.transaction(staff(userId), async client => (await client.query('select professional_user_id from public.appointments')).rows);
+    assert.ok(visible.length);
+    assert.ok(visible.every(row => row.professional_user_id === userId), 'RLS must filter without an application ownership condition');
+  }
   await assert.rejects(db.transaction(staff('not-a-uuid'), inspect), /Invalid verified user ID/);
   console.log('Transaction identity reuse and rollback checks passed');
 } finally {

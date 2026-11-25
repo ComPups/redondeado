@@ -35,9 +35,8 @@ for (const [email, role, count] of [['camila.rojas@example.com', 'administrator'
   assert.equal((await (await request(path, token)).json()).role, role);
   const rows = await appointments(`${path}/appointments`, token);
   assert.equal(rows.length, count);
-  const direct = await client.from('appointments').select('id');
-  assert.ifError(direct.error);
-  assert.equal(direct.data.length, count);
+  const direct = await fetch(`${url}/rest/v1/appointments?select=id`, { headers: { apikey: key, Authorization: `Bearer ${token}` } });
+  assert.ok(!direct.ok, 'Data API must not expose appointments');
   assert.equal((await request('/staff/centers/00000000-0000-4000-8000-000000000099', token)).status, 403);
   await client.auth.signOut();
 }
