@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Team } from './backoffice/staff/Team';
 import { Agenda } from './backoffice/appointments/Agenda';
 import { apiUrl } from './shared/api';
 import { useLocation } from 'react-router';
@@ -12,6 +14,7 @@ import { useCenterProfile } from './public/centerProfile';
 
 export function Staff() {
   const location = useLocation();
+  const [platformCenterOpen, setPlatformCenterOpen] = useState(false);
   const centerPage = location.pathname === '/staff/centro';
   const servicesPage = location.pathname === '/staff/servicios';
   const { configured, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, refreshCenters } = useStaffWorkspace();
@@ -23,10 +26,16 @@ export function Staff() {
   if (!session) return <LoginView onSignIn={signIn} />;
   if (!platformResolved) return <main role="status">Cargando acceso…</main>;
   if (platformError) return <BackofficeLayout page="platform" onSignOut={signOut}><p className="notice error" role="alert">{platformError}</p></BackofficeLayout>;
-  if (platformAdmin) return <BackofficeLayout page="platform" onSignOut={signOut}>
+  if (platformAdmin) return <BackofficeLayout page="platform" onSignOut={signOut} onCenters={() => setPlatformCenterOpen(false)}>
     {centersError && <p className="notice error" role="alert">{centersError}</p>}
     <div className="staff-context"><span>ADMINISTRACIÓN DE PLATAFORMA</span><button className="staff-signout" type="button" onClick={refreshCenters}>Actualizar centros</button></div>
-    <div id="centros"><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} /></div>
+    {platformCenterOpen && selectedCenter ? <>
+      <button type="button" className="staff-signout" onClick={() => setPlatformCenterOpen(false)}>← Volver a centros</button>
+      <section className="staff-section"><h1>{selectedCenter.centers.name}</h1><p>{selectedCenter.centers.description || 'Consulta la información de este centro.'}</p>
+        <ServiceCatalog key={selected} centerId={selected} token={session.access_token} canManage />
+        <div className="staff-section"><Team key={selected} centerId={selected} token={session.access_token} onMembershipChanged={refreshCenters} /></div>
+      </section>
+    </> : <div id="centros"><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} onSelect={id => { selectCenter(id); setPlatformCenterOpen(true); }} /></div>}
     <div id="registros" className="staff-admin"><PlatformAdmin token={session.access_token} onCreated={refreshCenters} /></div>
   </BackofficeLayout>;
   const roleLabel = { administrator: 'Administrador', member: 'Miembro', limited: 'Acceso limitado', platform_administrator: 'Administrador de plataforma' };
@@ -42,6 +51,7 @@ export function Staff() {
         <div className="staff-hero-meta"><div><span>TU ROL</span><strong>{role ? roleLabel[role] : 'Cargando…'}</strong></div><div><span>HORARIO DE ATENCIÓN</span><strong>{profile?.opens_at && profile.closes_at ? `${profile.opens_at.slice(0, 5)} – ${profile.closes_at.slice(0, 5)}` : 'No disponible'}</strong></div></div>
       </section>
       {role && <ServiceCatalog key={selected} centerId={selected} token={session.access_token} canManage={role === 'administrator'} />}
+      {role === 'administrator' && <div className="staff-section"><Team key={selected} centerId={selected} token={session.access_token} onMembershipChanged={refreshCenters} /></div>}
       {role === 'administrator' && <Agenda key={`${selected}-center`} scope="center" role={role} token={session.access_token} centerId={selected} apiUrl={apiUrl} />}
       </> : servicesPage ? <>
       {selectedCenter && <Services key={selected} centerId={selected} centerName={selectedCenter.centers.name} professionalName={displayName ?? 'Profesional'} token={session.access_token} canEdit={role === 'member' || role === 'administrator'} administrator={role === 'administrator'} />}</> : <>

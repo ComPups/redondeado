@@ -41,6 +41,7 @@ function mockApi() {
     if (path === '/staff/platform/centers') return response([{ id: 'a', name: 'Center A', image_url: null }]);
     if (path === '/staff/centers/a') return response({ role: auth.role }, !failRole);
     if (path === '/staff/centers/b') return response({ role: auth.role });
+    if (path === '/staff/centers/a/team' || path === '/staff/centers/b/team') return response({ members: [], invitations: [] });
     if (path === '/staff/centers/a/service-catalog' || path === '/staff/centers/b/service-catalog') return response([]);
     if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60, professional_id: 'p' }] });
     if (path === '/staff/centers/a/appointments') return pendingAgenda ? pendingAgenda.promise : response(agenda(appointment('A')));
@@ -71,6 +72,7 @@ describe('staff workspace through the screen', () => {
     expect(screen.queryByRole('heading', { name: 'Servicios ofrecidos' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '+ Agregar servicio' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Equipo' })).toBeNull();
   });
 
   for (const role of ['administrator', 'member', 'limited'] as const) {
@@ -96,6 +98,8 @@ describe('staff workspace through the screen', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
     expect(screen.getByRole('heading', { name: 'Agendamientos del centro' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Equipo' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Equipo' })).toBeNull();
     expect(screen.getByRole('button', { name: '+ Agregar servicio' })).toBeTruthy();
     expect(await screen.findByText(/Patient Own/)).toBeTruthy();
     expect(await screen.findByText(/Patient Other/)).toBeTruthy();
@@ -229,4 +233,15 @@ describe('staff workspace through the screen', () => {
     expect(await screen.findByText(/Patient A/)).toBeTruthy();
     expect(screen.getByText('Could not load center access.')).toBeTruthy();
   });
+});
+
+it('lets a platform administrator select the center whose team they manage', async () => {
+  await signIn('platform_administrator');
+  const card = (await screen.findByRole('heading', { name: 'Center B' })).closest('article')!;
+  fireEvent.click(within(card).getByRole('button', { name: 'Abrir centro' }));
+  expect(await screen.findByRole('heading', { name: 'Equipo' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/staff/centers/b/team'), expect.anything()));
+  fireEvent.click(screen.getByRole('button', { name: '← Volver a centros' }));
+  expect(screen.queryByRole('heading', { name: 'Equipo' })).toBeNull();
 });
