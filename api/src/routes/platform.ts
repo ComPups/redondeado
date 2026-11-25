@@ -7,6 +7,7 @@ async function query(res: Response, text: string, values: unknown[] = []) {
   catch (error) { return { data: [], error: error as { code?: string } }; }
 }
 import { requirePlatformAdmin } from '../middleware/platformAccess.js';
+import { updateMember } from './team.js';
 
 export const platformRoutes = Router();
 const router = platformRoutes;
@@ -67,15 +68,12 @@ router.patch('/platform/:entity/:id', async (req, res) => {
 });
 
 router.get('/platform-memberships', async (_req, res) => {
-  const { data, error } = await query(res, 'select center_id, user_id, role from public.center_memberships limit 1000');
+  const { data, error } = await query(res, 'select center_id, user_id, role, active from public.center_memberships limit 1000');
   if (error) { res.status(500).json({ error: 'Could not load memberships' }); return; }
   res.json(data);
 });
 router.patch('/platform-memberships/:centerId/:userId', async (req, res) => {
-  if (!['administrator', 'member', 'limited'].includes(req.body?.role)) { res.status(400).json({ error: 'Invalid role' }); return; }
-  const { data: rows, error } = await query(res, 'update public.center_memberships set role = $1 where center_id = $2 and user_id = $3 returning center_id, user_id, role', [req.body.role, req.params.centerId, req.params.userId]);
-  const data = rows[0];
-  if (error) { res.status(400).json({ error: 'Could not update membership' }); return; }
-  if (!data) { res.status(404).json({ error: 'Membership not found' }); return; }
-  res.json(data);
+  if (!['administrator', 'member', 'limited'].includes(req.body?.role) || (req.body?.active !== undefined && typeof req.body.active !== 'boolean') || Object.keys(req.body ?? {}).some(key => !['role','active'].includes(key))) { res.status(400).json({ error: 'Invalid role' }); return; }
+  try { res.json(await updateMember(res, req.params.centerId, req.params.userId, req.body.role, req.body.active ?? null)); }
+  catch (error) { const code = (error as { code?: string }).code; res.status(code === '23514' ? 409 : code === 'P0002' ? 404 : 400).json({ error: code === '23514' ? 'El centro debe conservar un administrador activo.' : code === 'P0002' ? 'Membership not found' : 'Could not update membership' }); }
 });

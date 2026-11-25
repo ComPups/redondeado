@@ -25,7 +25,7 @@ router.get('/centers', async (_req, res) => {
     if (error) { res.status(500).json({ error: 'Could not load centers' }); return; }
     res.json(data.map((center: { id: string; name: string; slug: string; description: string; opens_at: string; closes_at: string }) => ({ center_id: center.id, role: 'platform_administrator', centers: center }))); return;
   }
-  const { data, error } = await query(res, `select m.center_id, m.role, json_build_object('id', c.id, 'name', c.name, 'slug', c.slug, 'description', c.description, 'opens_at', c.opens_at, 'closes_at', c.closes_at) as centers from public.center_memberships m left join public.centers c on c.id = m.center_id where m.user_id = $1 limit 1000`, [userId]);
+  const { data, error } = await query(res, `select m.center_id, m.role, json_build_object('id', c.id, 'name', c.name, 'slug', c.slug, 'description', c.description, 'opens_at', c.opens_at, 'closes_at', c.closes_at) as centers from public.center_memberships m left join public.centers c on c.id = m.center_id where m.user_id = $1 and m.active limit 1000`, [userId]);
   if (error) { res.status(500).json({ error: 'Could not load centers' }); return; }
   res.json(data);
 });

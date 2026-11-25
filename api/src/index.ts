@@ -5,6 +5,7 @@ import { createDatabase } from './db.js';
 import { authenticateStaff } from './middleware/auth.js';
 import { platformRoutes } from './routes/platform.js';
 import { publicRoutes } from './routes/public.js';
+import { teamRoutes } from './routes/team.js';
 import { staffRoutes } from './routes/staff.js';
 
 const app = express();
@@ -26,7 +27,7 @@ app.use(cors({ origin: webOrigin }));
 app.use(express.json({ limit: '128kb' }));
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/public', publicRoutes(db));
-app.use('/staff', authenticateStaff(url, key, db), (_req, res, next) => { res.locals.publicDb = db; next(); }, platformRoutes, staffRoutes);
+app.use('/staff', authenticateStaff(url, key, db), (_req, res, next) => { res.locals.publicDb = db; next(); }, teamRoutes(url, process.env.SUPABASE_SECRET_KEY, webOrigin), platformRoutes, staffRoutes);
 
 if (!process.env.VERCEL) {
   const server = app.listen(port, '127.0.0.1', () => console.log(`API listening on http://127.0.0.1:${port}`));
