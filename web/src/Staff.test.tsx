@@ -41,6 +41,7 @@ function mockApi() {
     if (path === '/staff/platform/centers') return response([{ id: 'a', name: 'Center A', image_url: null }]);
     if (path === '/staff/centers/a') return response({ role: auth.role }, !failRole);
     if (path === '/staff/centers/b') return response({ role: auth.role });
+    if (path === '/staff/centers/a/service-catalog' || path === '/staff/centers/b/service-catalog') return response([]);
     if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60, professional_id: 'p' }] });
     if (path === '/staff/centers/a/appointments') return pendingAgenda ? pendingAgenda.promise : response(agenda(appointment('A')));
     if (path === '/staff/centers/b/appointments') return response(agenda(appointment('B')));
@@ -68,6 +69,8 @@ describe('staff workspace through the screen', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
     expect(screen.getByRole('heading', { name: 'Center A' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Servicios ofrecidos' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '+ Agregar servicio' })).toBeNull();
   });
 
   for (const role of ['administrator', 'member', 'limited'] as const) {
@@ -92,6 +95,8 @@ describe('staff workspace through the screen', () => {
     expect(screen.queryByText(/Patient Other/)).toBeNull();
     fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
     expect(screen.getByRole('heading', { name: 'Agendamientos del centro' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '+ Agregar servicio' })).toBeTruthy();
     expect(await screen.findByText(/Patient Own/)).toBeTruthy();
     expect(await screen.findByText(/Patient Other/)).toBeTruthy();
   });

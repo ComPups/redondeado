@@ -7,6 +7,7 @@ import { BackofficeLayout } from './backoffice/components/BackofficeLayout';
 import { PlatformAdmin } from './backoffice/staff/PlatformAdmin';
 import { useStaffWorkspace } from './backoffice/staff/staffWorkspace';
 import { Services } from './backoffice/services/Services';
+import { ServiceCatalog } from './backoffice/services/ServiceCatalog';
 import { useCenterProfile } from './public/centerProfile';
 
 export function Staff() {
@@ -40,6 +41,7 @@ export function Staff() {
           {selectedCenter?.centers.slug && <a className="staff-public-link" href={`/${selectedCenter.centers.slug}`}>Ver página pública <span aria-hidden="true">↗</span></a>}</div>
         <div className="staff-hero-meta"><div><span>TU ROL</span><strong>{role ? roleLabel[role] : 'Cargando…'}</strong></div><div><span>HORARIO DE ATENCIÓN</span><strong>{profile?.opens_at && profile.closes_at ? `${profile.opens_at.slice(0, 5)} – ${profile.closes_at.slice(0, 5)}` : 'No disponible'}</strong></div></div>
       </section>
+      {role && <ServiceCatalog key={selected} centerId={selected} token={session.access_token} canManage={role === 'administrator'} />}
       {role === 'administrator' && <Agenda key={`${selected}-center`} scope="center" role={role} token={session.access_token} centerId={selected} apiUrl={apiUrl} />}
       </> : servicesPage ? <>
       {selectedCenter && <Services key={selected} centerId={selected} centerName={selectedCenter.centers.name} professionalName={displayName ?? 'Profesional'} token={session.access_token} canEdit={role === 'member' || role === 'administrator'} administrator={role === 'administrator'} />}</> : <>
