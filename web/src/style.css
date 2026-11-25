@@ -36,3 +36,18 @@
 .agenda-actions{display:flex;align-items:center;gap:12px}.confirm-delete-backdrop{z-index:1060}.confirm-delete-modal{z-index:1065}.appointment-form .form-label{margin-bottom:.3rem}.modal-footer .btn-outline-secondary{border:1px solid #6c757d}.modal-footer .btn-danger{background:#c73939;color:#fff}.modal-footer .btn-danger:hover{background:#a92d2d}
 
 .agenda-pagination{display:flex;align-items:center;gap:12px;margin-top:16px}.agenda-pagination .btn-outline-secondary{border:1px solid #6c757d}
+
+.staff-terms-card{padding:24px;background:#fff;border:1px solid #e7eeeb;border-radius:11px;box-shadow:0 4px 18px #213f3708}
+.staff-terms-context{margin:0 0 20px;color:#668079;font-size:13px;line-height:1.6}
+.staff-terms-context strong{color:#35554b}.staff-terms-context span{margin:0 6px}
+.staff-terms-card label{display:block;margin:18px 0 8px;color:#35554b;font-size:13px;font-weight:700}
+.staff-terms-card select,.staff-terms-card textarea{display:block;width:100%;padding:11px 12px;border:1px solid #dce5e3;border-radius:8px;background:#fff;color:#263c3a;font:inherit}
+.staff-terms-card textarea{min-height:200px;resize:vertical;line-height:1.5}
+.staff-terms-card select:focus-visible,.staff-terms-card textarea:focus-visible,.staff-terms-actions button:focus-visible{outline:3px solid #8fc9b9;outline-offset:2px}
+.staff-terms-help{margin:10px 0 20px;color:#71847d;font-size:12px;line-height:1.5}
+.staff-terms-actions{display:flex;flex-wrap:wrap;gap:10px}
+.staff-terms-actions button{min-height:42px;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.staff-terms-publish{border:1px solid #197e6d;background:#197e6d;color:#fff}.staff-terms-publish:hover:not(:disabled){background:#126b5c}
+.staff-terms-withdraw{border:1px solid #dce8e3;background:#fff;color:#54736a}.staff-terms-withdraw:hover:not(:disabled){background:#f1f8f4}
+.staff-terms-actions button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:600px){.staff-terms-card{padding:18px}.staff-terms-actions button{flex:1 1 auto}}
