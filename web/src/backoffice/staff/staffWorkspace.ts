@@ -56,7 +56,11 @@ export function useStaffWorkspace() {
       if (!active) return;
       const nextUser = next?.user.id ?? null;
       if (nextUser !== sessionUser.current) { clearWorkspace(); sessionUser.current = nextUser; }
-      setSession(next); setLoading(false);
+      // Auth can emit SIGNED_IN again when the tab regains focus. Preserve
+      // state identity when the credentials are unchanged so data effects and
+      // mounted forms do not restart. New tokens still propagate normally.
+      setSession(previous => previous?.user.id === next?.user.id && previous?.access_token === next?.access_token ? previous : next);
+      setLoading(false);
     };
     supabase.auth.getSession().then(({ data }) => { if (!authEvent) apply(data.session); });
     const { data } = supabase.auth.onAuthStateChange((_event, next) => { authEvent = true; apply(next); });
@@ -70,7 +74,8 @@ export function useStaffWorkspace() {
   useEffect(() => {
     if (!session) return;
     const controller = new AbortController();
-    setCentersLoading(true);
+    // Refresh an existing workspace in place, including on token renewal.
+    setCentersLoading(centersRef.current.length === 0);
     const version = authVersion.current;
     const valid = () => !controller.signal.aborted && version === authVersion.current;
     staffFetch('/staff/centers', session.access_token, controller.signal).then((data: Center[]) => {

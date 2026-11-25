@@ -60,6 +60,36 @@ async function signIn(role: CenterRole) {
 beforeEach(() => { window.history.replaceState({}, '', '/staff/login'); auth.session = null; auth.signOutOptions = null; auth.revokeFails = false; centers = originalCenters; pendingAgenda = null; failRole = false; mockApi(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+it('keeps the workspace loaded when auth repeats SIGNED_IN after tab focus', async () => {
+  await signIn('member');
+  await screen.findByRole('heading', { name: '¡Hola, Camila!' });
+  await waitFor(() => expect((screen.getByLabelText('Centro') as HTMLSelectElement).value).toBe('a'));
+  const callsBefore = vi.mocked(fetch).mock.calls.length;
+  await act(async () => {
+    auth.listener('SIGNED_IN', { ...auth.session!, user: { ...auth.session!.user } });
+  });
+  expect(vi.mocked(fetch).mock.calls.length).toBe(callsBefore);
+  expect(screen.getByRole('heading', { name: '¡Hola, Camila!' })).toBeTruthy();
+});
+
+it('refreshes credentials without unmounting an open center settings form', async () => {
+  await signIn('administrator');
+  fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Editar centro' }));
+  fireEvent.change(screen.getByLabelText('Nombre del centro'), { target: { value: 'Edición pendiente' } });
+  const pendingCenters = deferred<Response>();
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation((input, init) => new URL(String(input)).pathname === '/staff/centers' ? pendingCenters.promise : originalFetch(input, init));
+  await act(async () => {
+    auth.session = { ...auth.session!, access_token: 'renewed-token' };
+    auth.listener('TOKEN_REFRESHED', auth.session);
+  });
+  expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Edición pendiente');
+  expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/staff/centers'), expect.objectContaining({ headers: { Authorization: 'Bearer renewed-token' } }));
+  await act(async () => pendingCenters.resolve(response(centers)));
+  expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Edición pendiente');
+});
+
 describe('staff workspace through the screen', () => {
   it('greets the staff member and navigates between distinct pages', async () => {
     await signIn('member');
