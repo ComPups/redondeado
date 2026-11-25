@@ -1,5 +1,8 @@
 begin;
 create extension if not exists pgtap with schema extensions;
+-- Test-only grants roll back with the fixtures below.
+grant redondeado_backend to postgres;
+grant usage on schema extensions to redondeado_backend;
 select no_plan();
 insert into auth.users(id,email,email_confirmed_at,aud,role) values
  ('a0000000-0000-4000-8000-000000000001','equipo.admin@example.com',now(),'authenticated','authenticated'),
@@ -19,5 +22,11 @@ select ok(not has_column_privilege('authenticated','public.center_memberships','
 select throws_ok($$update public.center_memberships set center_id='a0000000-0000-4000-8000-000000000099' where center_id='a0000000-0000-4000-8000-000000000010' and user_id='a0000000-0000-4000-8000-000000000002'$$,'42501',null,'staff cannot reassign a membership to another center');
 select throws_ok($$update public.center_memberships set role='member' where center_id='a0000000-0000-4000-8000-000000000010' and user_id='a0000000-0000-4000-8000-000000000001'$$,'23514',null,'last administrator cannot be demoted');
 select lives_ok($$update public.center_memberships set role='limited',active=false where center_id='a0000000-0000-4000-8000-000000000010' and user_id='a0000000-0000-4000-8000-000000000002'$$,'team manager can deactivate a non-admin');
+reset role;
+set local role redondeado_backend;
+select set_config('request.redondeado.context','public',true);
+select is((select count(*) from public.center_memberships where center_id='a0000000-0000-4000-8000-000000000010'),1::bigint,'backend workflows exclude inactive memberships');
+select is((select count(*) from public.professional_services where center_id='a0000000-0000-4000-8000-000000000010'),0::bigint,'backend profiles and availability exclude inactive staff offerings');
+reset role;
 select * from finish();
 rollback;
