@@ -32,6 +32,9 @@ export function Staff() {
   if (!session) return <LoginView onSignIn={signIn} />;
   if (!platformResolved) return <BrandLoader />;
   if (platformError) return <BackofficeLayout page="platform" onSignOut={signOut}><p className="notice error" role="alert">{platformError}</p></BackofficeLayout>;
+  if (platformAdmin && location.pathname === '/staff/registros') return <BackofficeLayout page="platform" platformPage="records" onSignOut={signOut} onCenters={() => setPlatformCenterOpen(false)}>
+    <div className="staff-admin"><PlatformAdmin token={session.access_token} onCreated={refreshCenters} /></div>
+  </BackofficeLayout>;
   if (centersLoading && !centers.length) return <BrandLoader />;
   if (platformAdmin) return <BackofficeLayout page="platform" onSignOut={signOut} onCenters={() => setPlatformCenterOpen(false)}>
     {centersError && <p className="notice error" role="alert">{centersError}</p>}
@@ -47,7 +50,6 @@ export function Staff() {
         <Agenda key={`${selected}-center`} scope="center" role="platform_administrator" token={session.access_token} centerId={selected} apiUrl={apiUrl} />
       </section>
     </> : <div id="centros"><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} onSelect={id => { selectCenter(id); setPlatformCenterOpen(true); }} /></div>}
-    <div id="registros" className="staff-admin"><PlatformAdmin token={session.access_token} onCreated={refreshCenters} /></div>
   </BackofficeLayout>;
   const roleLabel = { administrator: 'Administrador', member: 'Miembro', limited: 'Acceso limitado', platform_administrator: 'Administrador de plataforma' };
   return <BackofficeLayout page={centerPage ? 'center' : servicesPage ? 'services' : 'agenda'} onSignOut={signOut}>

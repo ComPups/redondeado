@@ -234,9 +234,17 @@ describe('staff workspace through the screen', () => {
   });
   it('uses the API field list to populate the platform editor', async () => {
     await signIn('platform_administrator');
+    expect(screen.queryByRole('heading', { name: 'Platform administration' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Registros' }).getAttribute('href')).toBe('/staff/registros');
+    fireEvent.click(screen.getByRole('link', { name: 'Registros' }));
+    expect(await screen.findByRole('heading', { name: 'Edit records' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Centros existentes' })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     const editor = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Editable fields (JSON)' });
     expect(JSON.parse(editor.value)).toEqual({ image_url: null });
+    fireEvent.click(screen.getByRole('link', { name: 'Centros' }));
+    expect(await screen.findByRole('heading', { name: 'Centros' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Edit records' })).toBeNull();
   });
   it('keeps a role error when the agenda succeeds', async () => {
     failRole = true;
