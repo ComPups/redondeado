@@ -520,6 +520,8 @@
   .center-hero { grid-template-columns: 1fr; gap: 1.75rem; }
   .center-hero h1 { text-wrap: initial; }
   .center-hero-image { max-height: 340px; }
+}
+
 .booking-terms {
   margin-top: 1.5rem;
   padding: 1.1rem 1.2rem;
