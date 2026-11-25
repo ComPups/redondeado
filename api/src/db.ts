@@ -4,6 +4,7 @@ import type { PoolClient, PoolConfig } from 'pg';
 // Only the authentication middleware may construct a staff identity, after
 // verifying the token with Supabase Auth. No role or claims come from a body.
 export type DatabaseIdentity = { kind: 'staff'; userId: string } | { kind: 'public' };
+export type WorkflowIdentity = DatabaseIdentity;
 
 export function createDatabase(config: PoolConfig, statementTimeoutMs: number) {
   if (!Number.isSafeInteger(statementTimeoutMs) || statementTimeoutMs <= 0) throw new Error('Invalid statement timeout');
@@ -33,5 +34,28 @@ export function createDatabase(config: PoolConfig, statementTimeoutMs: number) {
     }
   }
 
-  return { transaction, close: () => pool.end() };
+  // Workflow services use a private runtime role with narrowly scoped table
+  // grants and RLS policies. The existing transaction() method intentionally
+  // remains the authenticated/public seam for the rest of the staff API.
+  async function workflowTransaction<T>(identity: WorkflowIdentity, run: (client: PoolClient) => Promise<T>): Promise<T> {
+    if (identity.kind === 'staff' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identity.userId)) throw new Error('Invalid verified user ID');
+    const client = await pool.connect();
+    let discard = false;
+    try {
+      await client.query('begin');
+      await client.query('set local role redondeado_backend');
+      const claims = identity.kind === 'staff' ? { sub: identity.userId, role: 'authenticated' } : {};
+      await client.query("select set_config('request.jwt.claim.sub', '', true), set_config('request.jwt.claims', $1, true), set_config('request.redondeado.context', $2, true), set_config('statement_timeout', $3, true)", [JSON.stringify(claims), identity.kind, `${statementTimeoutMs}ms`]);
+      const result = await run(client);
+      await client.query('commit');
+      return result;
+    } catch (error) {
+      try { await client.query('rollback'); } catch { discard = true; }
+      throw error;
+    } finally {
+      client.release(discard);
+    }
+  }
+
+  return { transaction, workflowTransaction, close: () => pool.end() };
 }

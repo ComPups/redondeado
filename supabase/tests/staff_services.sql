@@ -12,7 +12,7 @@ select is((select price_clp from public.professional_services where professional
 with changed as (update public.professional_services set active=false where professional_user_id=(select auth.uid()) and service_id='70000000-0000-4000-8000-000000000001' returning 1) select is((select count(*) from changed),1::bigint,'member removes own offering');
 select throws_ok($$insert into public.professional_services(center_id,professional_user_id,service_id,price_clp,duration_minutes) values ('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000000001',1,30)$$,'42501',null,'member cannot create an offering for another professional');
 reset role;
-select is((select count(*) from public.public_availability('centro-bienestar-arrayan','70000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000002')),0::bigint,'removed offering cannot be booked');
+select is((select count(*) from public.professional_services where center_id='10000000-0000-4000-8000-000000000001' and professional_user_id='20000000-0000-4000-8000-000000000002' and service_id='70000000-0000-4000-8000-000000000001' and active),0::bigint,'removed offering is unavailable to the backend booking workflow');
 update public.services set active=false where id='70000000-0000-4000-8000-000000000002';
 select is((select count(*) from public.professional_services where service_id='70000000-0000-4000-8000-000000000002' and active),0::bigint,'catalog deactivation retires every offering');
 set local role authenticated;

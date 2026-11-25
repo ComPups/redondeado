@@ -26,6 +26,10 @@ try {
   assert.equal(publicContext.current_user, 'redondeado_public');
   assert.equal(publicContext.uid, null);
   assert.equal(publicContext.pid, a.pid);
+  const workflowContext = await db.workflowTransaction({ kind: 'public' }, async client => (await client.query("select current_user, current_setting('request.redondeado.context', true) as context, nullif(current_setting('request.jwt.claims', true), '')::jsonb->>'sub' as uid")).rows[0]);
+  assert.equal(workflowContext.current_user, 'redondeado_backend');
+  assert.equal(workflowContext.context, 'public');
+  assert.equal(workflowContext.uid, null);
   await assert.rejects(db.transaction({ kind: 'public' }, client => client.query('select * from public.appointments')), /permission denied/);
   const member = '20000000-0000-4000-8000-000000000002';
   const limited = '20000000-0000-4000-8000-000000000003';

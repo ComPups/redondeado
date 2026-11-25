@@ -1,5 +1,9 @@
 import { Router, type Response } from 'express';
 import type { PoolClient } from 'pg';
+import { availability } from '../services/availability.js';
+import { bookStaffAppointment } from '../services/booking.js';
+import { changeBookingTerms, staffBookingTerms } from '../services/bookingTerms.js';
+import { errorCode } from '../services/workflowErrors.js';
 
 async function query(res: Response, text: string, values: unknown[] = []) {
   const { sql, userId } = res.locals.staff;
@@ -209,7 +213,7 @@ router.get('/centers/:centerId/availability', async (req, res) => {
   const center = centers[0];
   if (centerError || !center) { res.status(500).json({ error: 'No se pudo cargar el centro.' }); return; }
   try {
-    const slots = await res.locals.publicDb.transaction({ kind: 'public' }, async (client: import('pg').PoolClient) => (await client.query('select * from public.public_availability($1, $2, $3)', [center.slug, service_id, professional_id])).rows);
+    const slots = await res.locals.publicDb.workflowTransaction({ kind: 'staff', userId: res.locals.staff.userId }, (client: PoolClient) => availability(client, center.slug, service_id, professional_id));
     res.json(slots);
   } catch { res.status(500).json({ error: 'No se pudieron cargar los horarios disponibles.' }); }
 });
@@ -227,21 +231,29 @@ router.post('/centers/:centerId/appointments', async (req, res) => {
   if (![service_id, professional_id, starts_at, patient_name, patient_email, patient_phone].every(v => typeof v === 'string' && v.trim())) {
     res.status(400).json({ error: 'Completa todos los campos.' }); return;
   }
-  const { data: rows, error } = await query(res, 'select public.book_staff_appointment($1, $2, $3, $4, $5, $6, $7) as value', [req.params.centerId, service_id, professional_id, starts_at, patient_name, patient_email, patient_phone]);
-  const data = rows[0]?.value;
-  if (error) {
-    const message = error.code === 'P0001' || error.code === '23P01' ? 'El horario no está disponible. Elige otro horario.' : error.code === '42501' ? 'No tienes acceso para agendar con este profesional.' : 'Revisa los datos ingresados.';
-    res.status(error.code === '42501' ? 403 : error.code === 'P0001' || error.code === '23P01' ? 409 : 400).json({ error: message }); return;
+  const serviceId = service_id as string;
+  const professionalId = professional_id as string;
+  const start = starts_at as string;
+  const name = patient_name as string;
+  const email = patient_email as string;
+  const phone = patient_phone as string;
+  try {
+    const id = await res.locals.publicDb.workflowTransaction({ kind: 'staff', userId: res.locals.staff.userId }, (client: PoolClient) => bookStaffAppointment(client, { centerId: req.params.centerId, serviceId, professionalId, staffUserId: res.locals.staff.userId, start, name, email, phone }));
+    res.status(201).json({ id });
+  } catch (error) {
+    const code = errorCode(error);
+    const message = code === 'P0001' || code === '23P01' ? 'El horario no está disponible. Elige otro horario.' : code === '42501' ? 'No tienes acceso para agendar con este profesional.' : 'Revisa los datos ingresados.';
+    res.status(code === '42501' ? 403 : code === 'P0001' || code === '23P01' ? 409 : 400).json({ error: message });
   }
-  res.status(201).json({ id: data });
 });
 const termsScope = (scope: string) => scope === 'center' ? null : scope;
 const validTermsScope = (scope: string) => scope === 'center' || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scope);
 
 router.get('/centers/:centerId/terms', async (req, res) => {
-  const { data, error } = await query(res, 'select * from public.staff_booking_terms($1) limit 1000', [req.params.centerId]);
-  if (error) { res.status(500).json({ error: 'Could not load terms' }); return; }
-  res.json(data);
+  try {
+    const data = await res.locals.publicDb.workflowTransaction({ kind: 'staff', userId: res.locals.staff.userId }, (client: PoolClient) => staffBookingTerms(client, req.params.centerId, res.locals.staff.userId));
+    res.json(data);
+  } catch { res.status(500).json({ error: 'Could not load terms' }); }
 });
 
 async function writeTerms(req: import('express').Request, res: import('express').Response, withdraw: boolean) {
@@ -251,11 +263,14 @@ async function writeTerms(req: import('express').Request, res: import('express')
   if (scope === 'center' && res.locals.role !== 'administrator') { res.status(403).json({ error: 'Center administrator required' }); return; }
   const body = withdraw ? null : req.body?.body;
   if (!withdraw && (typeof body !== 'string' || !body.trim() || body.length > 30000)) { res.status(400).json({ error: 'Invalid terms' }); return; }
-  const { data: rows, error } = await query(res, 'select public.manage_booking_terms($1, $2, $3) as value', [req.params.centerId, termsScope(scope), body]);
-  const data = rows[0]?.value;
-  if (error) { res.status(error.code === '42501' ? 403 : error.code === '22023' ? 400 : 500).json({ error: 'Could not update terms' }); return; }
-  if (withdraw) { res.status(204).end(); return; }
-  res.status(req.method === 'POST' ? 201 : 200).json({ id: data, service_id: termsScope(scope), body });
+  try {
+    const data = await res.locals.publicDb.workflowTransaction({ kind: 'staff', userId: res.locals.staff.userId }, (client: PoolClient) => changeBookingTerms(client, req.params.centerId as string, res.locals.staff.userId, termsScope(scope), body));
+    if (withdraw) { res.status(204).end(); return; }
+    res.status(req.method === 'POST' ? 201 : 200).json({ id: data, service_id: termsScope(scope), body });
+  } catch (error) {
+    const code = errorCode(error);
+    res.status(code === '42501' ? 403 : code === '22023' ? 400 : 500).json({ error: 'Could not update terms' });
+  }
 }
 
 // Publishing creates a new immutable version; withdrawal keeps prior acceptances.
