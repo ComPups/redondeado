@@ -13,7 +13,7 @@ select lives_ok($$insert into public.centers (name,slug) values ('Platform Test'
 select is((select count(*) from public.centers where slug in ('centro-bienestar-arrayan', 'platform-test')), 2::bigint, 'platform admin reads all centers');
 with changed as (update public.services set name=name || ' Changed' returning 1) select is(count(*), 3::bigint, 'platform admin edits services') from changed;
 with changed as (update public.appointments set patient_name='Changed' where id in ('80000000-0000-4000-8000-000000000001', '80000000-0000-4000-8000-000000000002', '80000000-0000-4000-8000-000000000003') returning 1) select is(count(*), 3::bigint, 'platform admin edits appointments') from changed;
-with changed as (update public.center_memberships set role='limited' returning 1) select is(count(*), 3::bigint, 'platform admin edits memberships') from changed;
+with changed as (update public.center_memberships set role='limited',active=true where center_id='10000000-0000-4000-8000-000000000001' and user_id='20000000-0000-4000-8000-000000000002' returning role) select is((select role::text from changed), 'limited', 'platform admin edits memberships through guarded RLS operation');
 with changed as (update public.staff_profiles set display_name='Changed' returning professional_id) select is(count(*), 3::bigint, 'platform admin edits profiles') from changed;
 select * from finish();
 rollback;

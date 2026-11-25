@@ -36,7 +36,7 @@ select is((select count(*) from public.center_memberships), 1::bigint, 'member s
 select is((select role::text from public.center_memberships), 'member', 'member role is available');
 select is((select count(*) from public.centers), 1::bigint, 'member sees only their center');
 select is((select slug from public.centers), 'fixture-norte', 'member sees the correct center');
-select ok(not has_table_privilege('authenticated', 'public.center_memberships', 'INSERT'), 'member cannot administer memberships');
+select throws_ok($$insert into public.center_memberships values ('40000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000003', 'limited')$$, '42501', null, 'member cannot administer memberships');
 select ok(not has_table_privilege('authenticated', 'auth.users', 'SELECT'), 'private auth accounts are not exposed');
 select throws_ok($$select user_id from public.staff_profiles$$, '42501', null, 'authenticated users cannot read profile Auth IDs');
 select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000004', true);
