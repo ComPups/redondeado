@@ -1,4 +1,11 @@
-import { Router } from 'express';
+import { Router, type Response } from 'express';
+import type { PoolClient } from 'pg';
+
+async function query(res: Response, text: string, values: unknown[] = []) {
+  const { sql, userId } = res.locals.staff;
+  try { const result = await sql.transaction({ kind: 'staff', userId }, (client: PoolClient) => client.query(text, values)); return { data: result.rows, error: null }; }
+  catch (error) { return { data: [], error: error as { code?: string } }; }
+}
 import { requirePlatformAdmin } from '../middleware/platformAccess.js';
 
 export const platformRoutes = Router();
@@ -13,7 +20,8 @@ router.post('/platform/centers', async (req, res) => {
   }
   const slug = name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   if (!slug || slug === 'staff') { res.status(400).json({ error: 'Elige un nombre que genere una dirección válida.' }); return; }
-  const { data, error } = await res.locals.staff.db.from('centers').insert({ name: name.trim(), slug, description: description.trim(), opens_at, closes_at }).select('id, name, slug, description, opens_at, closes_at').single();
+  const { data: rows, error } = await query(res, 'insert into public.centers (name, slug, description, opens_at, closes_at) values ($1, $2, $3, $4, $5) returning id, name, slug, description, opens_at, closes_at', [name.trim(), slug, description.trim(), opens_at, closes_at]);
+  const data = rows[0];
   if (error) { res.status(error.code === '23505' ? 409 : 400).json({ error: error.code === '23505' ? 'Ya existe un centro con esa dirección.' : 'No se pudo crear el centro.' }); return; }
   res.status(201).json(data);
 });
@@ -38,7 +46,7 @@ router.get('/platform/editable-fields', (_req, res) => {
 router.get('/platform/:entity', async (req, res) => {
   const config = editable.get(req.params.entity);
   if (!config) { res.status(404).json({ error: 'Unknown entity' }); return; }
-  const { data, error } = await res.locals.staff.db.from(req.params.entity).select(selectFields(config));
+  const { data, error } = await query(res, `select ${selectFields(config)} from public.${req.params.entity} limit 1000`);
   if (error) { res.status(500).json({ error: 'Could not load records' }); return; }
   res.json(data);
 });
@@ -49,20 +57,24 @@ router.patch('/platform/:entity/:id', async (req, res) => {
   if (!changes || typeof changes !== 'object' || Array.isArray(changes) || !Object.keys(changes).length || Object.keys(changes).some(k => !config.columns.includes(k))) {
     res.status(400).json({ error: 'Invalid fields' }); return;
   }
-  const { data, error } = await res.locals.staff.db.from(req.params.entity).update(changes).eq(config.key, req.params.id).select(selectFields(config)).maybeSingle();
+  const keys = Object.keys(changes);
+  const assignments = keys.map((key, index) => `${key} = $${index + 1}`).join(', ');
+  const { data: rows, error } = await query(res, `update public.${req.params.entity} set ${assignments} where ${config.key} = $${keys.length + 1} returning ${selectFields(config)}`, [...keys.map(key => changes[key]), req.params.id]);
+  const data = rows[0];
   if (error) { res.status(400).json({ error: 'Could not update record' }); return; }
   if (!data) { res.status(404).json({ error: 'Record not found' }); return; }
   res.json(data);
 });
 
 router.get('/platform-memberships', async (_req, res) => {
-  const { data, error } = await res.locals.staff.db.from('center_memberships').select('center_id, user_id, role');
+  const { data, error } = await query(res, 'select center_id, user_id, role from public.center_memberships limit 1000');
   if (error) { res.status(500).json({ error: 'Could not load memberships' }); return; }
   res.json(data);
 });
 router.patch('/platform-memberships/:centerId/:userId', async (req, res) => {
   if (!['administrator', 'member', 'limited'].includes(req.body?.role)) { res.status(400).json({ error: 'Invalid role' }); return; }
-  const { data, error } = await res.locals.staff.db.from('center_memberships').update({ role: req.body.role }).eq('center_id', req.params.centerId).eq('user_id', req.params.userId).select('center_id, user_id, role').maybeSingle();
+  const { data: rows, error } = await query(res, 'update public.center_memberships set role = $1 where center_id = $2 and user_id = $3 returning center_id, user_id, role', [req.body.role, req.params.centerId, req.params.userId]);
+  const data = rows[0];
   if (error) { res.status(400).json({ error: 'Could not update membership' }); return; }
   if (!data) { res.status(404).json({ error: 'Membership not found' }); return; }
   res.json(data);

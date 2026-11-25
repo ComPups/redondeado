@@ -1,5 +1,8 @@
 project_id = "redondeado"
 
+[api]
+enabled = false
+
 [auth]
 site_url = "http://localhost:5173"
 enable_signup = false
