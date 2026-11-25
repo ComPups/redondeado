@@ -1,4 +1,5 @@
 import { Team } from './backoffice/staff/Team';
+import { BookingTermsEditor } from './backoffice/staff/BookingTermsEditor';
 import { BrandLoader } from './shared/components/BrandLoader';
 import { LoadingSkeleton } from './shared/components/LoadingSkeleton';
 import { Agenda } from './backoffice/appointments/Agenda';
@@ -37,9 +38,13 @@ export function Staff() {
     <div className="staff-context"><span>ADMINISTRACIÓN DE PLATAFORMA</span><button className="staff-signout" type="button" onClick={refreshCenters}>Actualizar centros</button></div>
     {platformCenterOpen && selectedCenter ? <>
       <button type="button" className="staff-signout" onClick={() => setPlatformCenterOpen(false)}>← Volver a centros</button>
-      <section className="staff-section"><h1>{selectedCenter.centers.name}</h1><p>{selectedCenter.centers.description || 'Consulta la información de este centro.'}</p>
+      <section className="staff-section"><div className="staff-center-heading"><h1>{selectedCenter.centers.name}</h1><EditButton name="centro" onClick={() => { setEditingCenter(true); setCenterSaved(false); }} disabled={editingCenter} /></div><p>{selectedCenter.centers.description || 'Consulta la información de este centro.'}</p>
+        {centerSaved && <p className="notice" role="status">Configuración guardada.</p>}
+        {editingCenter && <CenterSettings key={`${selected}-settings`} center={selectedCenter.centers} token={session.access_token} onCancel={() => setEditingCenter(false)} onSaved={center => { updateCenterDetails(center); setEditingCenter(false); setCenterSaved(true); }} />}
         <ServiceCatalog key={selected} centerId={selected} token={session.access_token} canManage />
         <div className="staff-section"><Team key={selected} centerId={selected} token={session.access_token} onMembershipChanged={refreshCenters} /></div>
+        <BookingTermsEditor key={`${selected}-terms`} centerId={selected} centerName={selectedCenter.centers.name} professionalName={displayName ?? 'Administrador de plataforma'} services={[]} administrator token={session.access_token} />
+        <Agenda key={`${selected}-center`} scope="center" role="platform_administrator" token={session.access_token} centerId={selected} apiUrl={apiUrl} />
       </section>
     </> : <div id="centros"><CentersView token={session.access_token} centers={centers.map(c => c.centers)} loading={centersLoading} onCreated={refreshCenters} onSelect={id => { selectCenter(id); setPlatformCenterOpen(true); }} /></div>}
     <div id="registros" className="staff-admin"><PlatformAdmin token={session.access_token} onCreated={refreshCenters} /></div>

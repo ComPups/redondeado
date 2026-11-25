@@ -42,6 +42,7 @@ function mockApi() {
     if (path === '/staff/centers/a') return response({ role: auth.role }, !failRole);
     if (path === '/staff/centers/b') return response({ role: auth.role });
     if (path === '/staff/centers/a/team' || path === '/staff/centers/b/team') return response({ members: [], invitations: [] });
+    if (path === '/staff/centers/a/terms' || path === '/staff/centers/b/terms') return response([]);
     if (path === '/staff/centers/a/service-catalog' || path === '/staff/centers/b/service-catalog') return response([]);
     if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60, professional_id: 'p' }] });
     if (path === '/staff/centers/a/appointments') return pendingAgenda ? pendingAgenda.promise : response(agenda(appointment('A')));
@@ -256,6 +257,13 @@ it('lets a platform administrator select the center whose team they manage', asy
   fireEvent.click(within(card).getByRole('button', { name: 'Abrir centro' }));
   expect(await screen.findByRole('heading', { name: 'Equipo' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '+ Agregar servicio' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Agendamientos del centro' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Términos y condiciones' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Editar centro' }));
+  expect(screen.getByRole('heading', { name: 'Configuraciones del centro' })).toBeTruthy();
+  expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Center B');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
   await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/staff/centers/b/team'), expect.anything()));
   fireEvent.click(screen.getByRole('button', { name: '← Volver a centros' }));
   expect(screen.queryByRole('heading', { name: 'Equipo' })).toBeNull();
