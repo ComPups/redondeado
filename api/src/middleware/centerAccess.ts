@@ -1,6 +1,8 @@
 import type { RequestHandler } from 'express';
 import type { PoolClient } from 'pg';
 
+export const isCenterAdministrator = (role: unknown) => role === 'administrator' || role === 'platform_administrator';
+
 export const requireCenterAccess: RequestHandler<{ centerId: string }> = async (req, res, next) => {
   const { sql, userId, platformAdmin } = res.locals.staff;
   try {

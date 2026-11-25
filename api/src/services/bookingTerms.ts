@@ -10,13 +10,15 @@ export async function publicBookingTerms(client: PoolClient, slug: string, servi
 }
 export async function staffBookingTerms(client: PoolClient, centerId: string, userId: string) {
   return (await client.query<{ service_id: string | null; body: string }>(`select t.service_id, v.body from public.booking_terms_current t join public.booking_terms_versions v on v.id=t.version_id
-    join public.center_memberships m on m.center_id=t.center_id and m.user_id=$2
-    where t.center_id=$1 and (t.professional_user_id=m.user_id or (t.professional_user_id is null and m.role='administrator'))`, [centerId, userId])).rows;
+    left join public.center_memberships m on m.center_id=t.center_id and m.user_id=$2
+    where t.center_id=$1 and (t.professional_user_id=m.user_id or (t.professional_user_id is null and
+      (m.role='administrator' or exists(select 1 from public.platform_administrators p where p.user_id=$2))))`, [centerId, userId])).rows;
 }
 
 export async function changeBookingTerms(client: PoolClient, centerId: string, userId: string, serviceId: string | null, body: string | null) {
   const membership = (await client.query<{ role: string }>('select role from public.center_memberships where center_id=$1 and user_id=$2', [centerId, userId])).rows[0];
-  if (!membership || (serviceId === null ? membership.role !== 'administrator' : !['administrator', 'member'].includes(membership.role))) throw new WorkflowError('42501', 'Forbidden');
+  const platformAdmin = serviceId === null && (await client.query('select 1 from public.platform_administrators where user_id=$1', [userId])).rowCount !== 0;
+  if (!platformAdmin && (!membership || (serviceId === null ? membership.role !== 'administrator' : !['administrator', 'member'].includes(membership.role)))) throw new WorkflowError('42501', 'Forbidden');
   if (serviceId !== null) {
     const service = (await client.query('select 1 from public.services where center_id=$1 and id=$2 and active', [centerId, serviceId])).rowCount;
     if (!service) throw new WorkflowError('22023', 'Invalid service');
