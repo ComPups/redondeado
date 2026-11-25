@@ -10,7 +10,7 @@ async function query(res: Response, text: string, values: unknown[] = []) {
   try { const result = await sql.transaction({ kind: 'staff', userId }, (client: PoolClient) => client.query(text, values)); return { data: result.rows, error: null }; }
   catch (error) { return { data: [], error: error as { code?: string; message?: string } }; }
 }
-import { requireCenterAccess } from '../middleware/centerAccess.js';
+import { isCenterAdministrator, requireCenterAccess } from '../middleware/centerAccess.js';
 
 export const staffRoutes = Router();
 const router = staffRoutes;
@@ -41,7 +41,7 @@ router.get('/centers/:centerId', (req, res) => {
 });
 
 router.patch('/centers/:centerId', async (req, res) => {
-  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  if (!isCenterAdministrator(res.locals.role)) { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
     res.status(400).json({ error: 'Revisa el nombre, la descripción y los horarios del centro.' }); return;
   }
@@ -74,7 +74,7 @@ function validOffering(body: any) {
 const serviceIdValid = (id: unknown) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 router.post('/centers/:centerId/service-catalog', async (req, res) => {
-  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  if (!isCenterAdministrator(res.locals.role)) { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
   const { name, description = '' } = req.body ?? {};
   if (typeof name !== 'string' || !name.trim() || name.trim().length > 120 || typeof description !== 'string' || description.length > 400 || !validOffering(req.body)) { res.status(400).json({ error: 'Datos de servicio inválidos.' }); return; }
   const { data, error } = await query(res, 'insert into public.services(center_id,name,description,price_clp,duration_minutes) values($1,$2,$3,$4,$5) returning id,name,description,price_clp,duration_minutes', [req.params.centerId,name.trim(),description.trim(),req.body.price_clp,req.body.duration_minutes]);
@@ -82,7 +82,7 @@ router.post('/centers/:centerId/service-catalog', async (req, res) => {
   res.status(201).json(data[0]);
 });
 router.patch('/centers/:centerId/service-catalog/:serviceId', async (req, res) => {
-  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  if (!isCenterAdministrator(res.locals.role)) { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
   const { name, description = '' } = req.body ?? {};
   if (!serviceIdValid(req.params.serviceId) || typeof name !== 'string' || !name.trim() || name.trim().length > 120 || typeof description !== 'string' || description.length > 400) { res.status(400).json({ error: 'Datos de servicio inválidos.' }); return; }
   const { data, error } = await query(res, 'update public.services set name=$1,description=$2 where center_id=$3 and id=$4 and active returning id,name,description,price_clp,duration_minutes', [name.trim(),description.trim(),req.params.centerId,req.params.serviceId]);
@@ -91,7 +91,7 @@ router.patch('/centers/:centerId/service-catalog/:serviceId', async (req, res) =
   res.json(data[0]);
 });
 router.delete('/centers/:centerId/service-catalog/:serviceId', async (req, res) => {
-  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  if (!isCenterAdministrator(res.locals.role)) { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
   if (!serviceIdValid(req.params.serviceId)) { res.status(400).json({ error: 'Servicio inválido.' }); return; }
   const { data, error } = await query(res, 'update public.services set active=false where center_id=$1 and id=$2 and active returning id', [req.params.centerId,req.params.serviceId]);
   if (error) { res.status(500).json({ error: 'No se pudo eliminar el servicio.' }); return; }
@@ -278,7 +278,7 @@ async function writeTerms(req: import('express').Request, res: import('express')
   const scope = req.params.scope as string;
   if (res.locals.role === 'limited') { res.status(403).json({ error: 'Read-only access' }); return; }
   if (!validTermsScope(scope)) { res.status(400).json({ error: 'Invalid service' }); return; }
-  if (scope === 'center' && res.locals.role !== 'administrator') { res.status(403).json({ error: 'Center administrator required' }); return; }
+  if (scope === 'center' && !isCenterAdministrator(res.locals.role)) { res.status(403).json({ error: 'Center administrator required' }); return; }
   const body = withdraw ? null : req.body?.body;
   if (!withdraw && (typeof body !== 'string' || !body.trim() || body.length > 30000)) { res.status(400).json({ error: 'Invalid terms' }); return; }
   try {

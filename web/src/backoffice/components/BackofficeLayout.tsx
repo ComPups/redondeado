@@ -2,13 +2,13 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Brand } from '../../shared/components/Brand';
 
-export function BackofficeLayout({ children, onSignOut, page, onCenters }: { children: ReactNode; onSignOut: () => void; onCenters?: () => void; page: 'agenda' | 'services' | 'center' | 'platform' }) {
+export function BackofficeLayout({ children, onSignOut, page, onCenters, platformPage = 'centers' }: { children: ReactNode; onSignOut: () => void; onCenters?: () => void; platformPage?: 'centers' | 'records'; page: 'agenda' | 'services' | 'center' | 'platform' }) {
   return <div className="shell staff-shell">
     <aside className="sidebar">
       <Brand to="/staff" />
       <p className="sidebar-label">{page === 'platform' ? 'ADMINISTRACIÓN' : 'ESPACIO DE TRABAJO'}</p>
       <nav aria-label="Navegación principal">
-        {page === 'platform' ? <><a href="#centros" onClick={onCenters}><span aria-hidden="true">▦</span> Centros</a><a href="#registros"><span aria-hidden="true">✳︎</span> Registros</a></> : <><Link to="/staff" aria-current={page === 'agenda' ? 'page' : undefined}><span aria-hidden="true">▦</span> Agendamientos</Link>
+        {page === 'platform' ? <><Link to="/staff" onClick={onCenters} aria-current={platformPage === 'centers' ? 'page' : undefined}><span aria-hidden="true">▦</span> Centros</Link><Link to="/staff/registros" aria-current={platformPage === 'records' ? 'page' : undefined}><span aria-hidden="true">✳︎</span> Registros</Link></> : <><Link to="/staff" aria-current={page === 'agenda' ? 'page' : undefined}><span aria-hidden="true">▦</span> Agendamientos</Link>
         <Link to="/staff/servicios" aria-current={page === 'services' ? 'page' : undefined}><span aria-hidden="true">✳︎</span> Servicios</Link>
         <Link to="/staff/centro" aria-current={page === 'center' ? 'page' : undefined}><span aria-hidden="true">⌂</span> Mi centro</Link></>}
       </nav>

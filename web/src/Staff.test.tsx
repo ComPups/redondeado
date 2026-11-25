@@ -42,6 +42,7 @@ function mockApi() {
     if (path === '/staff/centers/a') return response({ role: auth.role }, !failRole);
     if (path === '/staff/centers/b') return response({ role: auth.role });
     if (path === '/staff/centers/a/team' || path === '/staff/centers/b/team') return response({ members: [], invitations: [] });
+    if (path === '/staff/centers/a/terms' || path === '/staff/centers/b/terms') return response([]);
     if (path === '/staff/centers/a/service-catalog' || path === '/staff/centers/b/service-catalog') return response([]);
     if (path === '/staff/centers/a/booking-options') return response({ professionals: [{ id: 'p', name: 'Camila' }], services: [{ id: 's', name: 'Consulta', duration_minutes: 60, professional_id: 'p' }] });
     if (path === '/staff/centers/a/appointments') return pendingAgenda ? pendingAgenda.promise : response(agenda(appointment('A')));
@@ -59,6 +60,36 @@ async function signIn(role: CenterRole) {
 }
 beforeEach(() => { window.history.replaceState({}, '', '/staff/login'); auth.session = null; auth.signOutOptions = null; auth.revokeFails = false; centers = originalCenters; pendingAgenda = null; failRole = false; mockApi(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it('keeps the workspace loaded when auth repeats SIGNED_IN after tab focus', async () => {
+  await signIn('member');
+  await screen.findByRole('heading', { name: '¡Hola, Camila!' });
+  await waitFor(() => expect((screen.getByLabelText('Centro') as HTMLSelectElement).value).toBe('a'));
+  const callsBefore = vi.mocked(fetch).mock.calls.length;
+  await act(async () => {
+    auth.listener('SIGNED_IN', { ...auth.session!, user: { ...auth.session!.user } });
+  });
+  expect(vi.mocked(fetch).mock.calls.length).toBe(callsBefore);
+  expect(screen.getByRole('heading', { name: '¡Hola, Camila!' })).toBeTruthy();
+});
+
+it('refreshes credentials without unmounting an open center settings form', async () => {
+  await signIn('administrator');
+  fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Editar centro' }));
+  fireEvent.change(screen.getByLabelText('Nombre del centro'), { target: { value: 'Edición pendiente' } });
+  const pendingCenters = deferred<Response>();
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation((input, init) => new URL(String(input)).pathname === '/staff/centers' ? pendingCenters.promise : originalFetch(input, init));
+  await act(async () => {
+    auth.session = { ...auth.session!, access_token: 'renewed-token' };
+    auth.listener('TOKEN_REFRESHED', auth.session);
+  });
+  expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Edición pendiente');
+  expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/staff/centers'), expect.objectContaining({ headers: { Authorization: 'Bearer renewed-token' } }));
+  await act(async () => pendingCenters.resolve(response(centers)));
+  expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Edición pendiente');
+});
 
 describe('staff workspace through the screen', () => {
   it('greets the staff member and navigates between distinct pages', async () => {
@@ -203,9 +234,17 @@ describe('staff workspace through the screen', () => {
   });
   it('uses the API field list to populate the platform editor', async () => {
     await signIn('platform_administrator');
+    expect(screen.queryByRole('heading', { name: 'Platform administration' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Registros' }).getAttribute('href')).toBe('/staff/registros');
+    fireEvent.click(screen.getByRole('link', { name: 'Registros' }));
+    expect(await screen.findByRole('heading', { name: 'Edit records' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Centros existentes' })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     const editor = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Editable fields (JSON)' });
     expect(JSON.parse(editor.value)).toEqual({ image_url: null });
+    fireEvent.click(screen.getByRole('link', { name: 'Centros' }));
+    expect(await screen.findByRole('heading', { name: 'Centros' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Edit records' })).toBeNull();
   });
   it('keeps a role error when the agenda succeeds', async () => {
     failRole = true;
@@ -226,6 +265,13 @@ it('lets a platform administrator select the center whose team they manage', asy
   fireEvent.click(within(card).getByRole('button', { name: 'Abrir centro' }));
   expect(await screen.findByRole('heading', { name: 'Equipo' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '+ Agregar servicio' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Agendamientos del centro' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Términos y condiciones' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Editar centro' }));
+  expect(screen.getByRole('heading', { name: 'Configuraciones del centro' })).toBeTruthy();
+  expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Center B');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
   await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/staff/centers/b/team'), expect.anything()));
   fireEvent.click(screen.getByRole('button', { name: '← Volver a centros' }));
   expect(screen.queryByRole('heading', { name: 'Equipo' })).toBeNull();
