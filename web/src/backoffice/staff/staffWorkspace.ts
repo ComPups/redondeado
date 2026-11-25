@@ -104,9 +104,13 @@ export function useStaffWorkspace() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return error ? 'No pudimos iniciar sesión. Revisa tu correo y contraseña.' : null;
   }
+  function updateCenterDetails(center: CenterDetails) {
+    centersRef.current = centersRef.current.map(membership => membership.center_id === center.id ? { ...membership, centers: center } : membership);
+    setCenters(centersRef.current);
+  }
   function signOut() {
     setSigningOut(true); clearWorkspace(); sessionUser.current = null; setSession(null);
     void supabase?.auth.signOut({ scope: 'local' }).catch(() => {}).finally(() => setSigningOut(false));
   }
-  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, refreshCenters: () => { clearRequestCache(); setRevision(v => v + 1); } };
+  return { configured: !!supabase, session, loading, centers, centersLoading, selected, role, platformAdmin, platformResolved, displayName, centersError, platformError, roleError, selectCenter, signIn, signOut, updateCenterDetails, refreshCenters: () => { clearRequestCache(); setRevision(v => v + 1); } };
 }

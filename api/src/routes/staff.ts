@@ -36,6 +36,25 @@ router.get('/centers/:centerId', (req, res) => {
   res.json({ centerId: req.params.centerId, role: res.locals.role });
 });
 
+router.patch('/centers/:centerId', async (req, res) => {
+  if (res.locals.role !== 'administrator') { res.status(403).json({ error: 'Se requiere ser administrador.' }); return; }
+  const { name, description, opens_at, closes_at } = req.body ?? {};
+  const time = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 120 ||
+    typeof description !== 'string' || description.length > 400 ||
+    typeof opens_at !== 'string' || !time.test(opens_at) ||
+    typeof closes_at !== 'string' || !time.test(closes_at) || opens_at >= closes_at ||
+    Object.keys(req.body).some(key => !['name', 'description', 'opens_at', 'closes_at'].includes(key))) {
+    res.status(400).json({ error: 'Revisa el nombre, la descripción y los horarios del centro.' }); return;
+  }
+  const { data, error } = await query(res,
+    'update public.centers set name=$2, description=$3, opens_at=$4, closes_at=$5 where id=$1 returning id, name, slug, description, opens_at, closes_at',
+    [req.params.centerId, name.trim(), description.trim(), opens_at, closes_at]);
+  if (error) { res.status(error.code === '42501' ? 403 : error.code === '23514' ? 400 : 500).json({ error: 'No se pudo guardar la configuración del centro.' }); return; }
+  if (!data[0]) { res.status(404).json({ error: 'Centro no encontrado.' }); return; }
+  res.json(data[0]);
+});
+
 router.get('/centers/:centerId/service-catalog', async (req, res) => {
   const { data, error } = await query(res, 'select id, name, description, price_clp, duration_minutes from public.services where center_id=$1 and active order by name limit 1000', [req.params.centerId]);
   if (error) { res.status(500).json({ error: 'No se pudo cargar el catálogo.' }); return; }

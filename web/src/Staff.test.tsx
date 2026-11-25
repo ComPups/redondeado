@@ -71,6 +71,8 @@ describe('staff workspace through the screen', () => {
     expect(screen.queryByRole('heading', { name: 'Servicios ofrecidos' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '+ Agregar servicio' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Configuraciones del centro' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Editar centro' })).toBeNull();
   });
 
   for (const role of ['administrator', 'member', 'limited'] as const) {
@@ -97,8 +99,37 @@ describe('staff workspace through the screen', () => {
     expect(screen.getByRole('heading', { name: 'Agendamientos del centro' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Catálogo del centro' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '+ Agregar servicio' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Configuraciones del centro' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar centro' }));
+    expect(screen.getByRole('heading', { name: 'Configuraciones del centro' })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Nombre del centro'), { target: { value: 'Cambio sin guardar' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('heading', { name: 'Configuraciones del centro' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar centro' }));
+    expect((screen.getByLabelText('Nombre del centro') as HTMLInputElement).value).toBe('Center A');
     expect(await screen.findByText(/Patient Own/)).toBeTruthy();
     expect(await screen.findByText(/Patient Other/)).toBeTruthy();
+  });
+  it('closes the center editor after saving and updates the center card', async () => {
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (new URL(String(input)).pathname === '/staff/centers/a' && init?.method === 'PATCH') {
+        return response({ ...originalCenters[0].centers, ...JSON.parse(init.body as string) });
+      }
+      return originalFetch(input, init);
+    });
+    await signIn('administrator');
+    fireEvent.click(screen.getByRole('link', { name: 'Mi centro' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Editar centro' }));
+    fireEvent.change(screen.getByLabelText('Nombre del centro'), { target: { value: 'Centro actualizado' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(await screen.findByRole('heading', { name: 'Centro actualizado' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Configuraciones del centro' })).toBeNull();
+    expect(screen.getByText('Configuración guardada.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar centro' }));
+    fireEvent.change(screen.getByLabelText('Centro'), { target: { value: 'b' } });
+    await screen.findByRole('heading', { name: 'Center B' });
+    expect(screen.queryByRole('heading', { name: 'Configuraciones del centro' })).toBeNull();
   });
   it('loads 50-item pages and resets the page when changing filters', async () => {
     const originalFetch = vi.mocked(fetch).getMockImplementation()!;
