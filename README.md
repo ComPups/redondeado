@@ -12,7 +12,7 @@ A booking site and staff backoffice for the Encuadrado application process.
 #### Requisitos deseables
 - **Reagendamiento y cancelación — Cumplido.** El profesional puede modificar los datos y horario de una cita o eliminarla; el backend valida permisos, horario y conflictos.
 - **Agregar un agendamiento — Cumplido.** El personal con permisos puede crear una cita eligiendo fecha, servicio, profesional y datos del paciente desde el backoffice.
-- **Agenda en formato calendario — Parcial.** La selección de disponibilidad utiliza un calendario; la agenda del profesional todavía se presenta como una lista paginada.
+- **Agenda en formato calendario — Cumplido.** La agenda del profesional se presenta como un calendario que muestra 
 ### 2. Vista del paciente
 #### Requisitos mínimos
 - **Perfil público del centro — Cumplido.** El perfil es accesible sin autenticación desde una URL basada en el nombre del centro y muestra descripción, profesionales y servicios con precio en CLP y duración.
