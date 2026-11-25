@@ -130,3 +130,8 @@ retires linked offerings when an administrator deactivates a catalog entry. The
 `private.check_offering_catalog_active` trigger locks and checks the catalog when
 an offering is created or reactivated. These functions use fixed search paths;
 the triggers are not directly executable by staff.
+
+The public booking REST endpoint requires `expected_price_clp`. The public
+database role can execute `book_public_appointment_with_price` but not the
+unchecked booking function; the wrapper locks the offering and rejects stale
+prices before booking. Clients should refresh the catalog after `PRICE_CHANGED`.

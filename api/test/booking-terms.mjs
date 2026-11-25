@@ -44,7 +44,7 @@ try {
   assert.equal(publicTermsResponse.status, 200);
   const publicTerms = await publicTermsResponse.json();
   assert.ok(publicTerms.some(term => term.id === first.id));
-  const booking = { service, professional: '50000000-0000-4000-8000-000000000002', start: new Date(Date.now() + 86400000).toISOString(), name: 'Paciente Demo', email: 'p@example.com', phone: '+56912345678' };
+  const booking = { service, professional: '50000000-0000-4000-8000-000000000002', start: new Date(Date.now() + 86400000).toISOString(), name: 'Paciente Demo', email: 'p@example.com', phone: '+56912345678', expected_price_clp: 35000 };
   const missing = await request(`${publicPath}/bookings`, undefined, 'POST', { ...booking, terms: [] });
   assert.equal(missing.status, 409);
   assert.equal((await missing.json()).code, 'TERMS_CHANGED');

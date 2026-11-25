@@ -39,7 +39,7 @@ try {
   assert.ok(availability.length);
   const terms = await (await fetch(`${base}/terms?${params}`)).json();
   const email = `${randomUUID()}@example.com`;
-  const body = JSON.stringify({ service, professional, start: availability[0].starts_at, name: 'Prueba Aislada', email, phone: '+56912345678', terms: terms.map(term => term.id) });
+  const body = JSON.stringify({ service, professional, start: availability[0].starts_at, name: 'Prueba Aislada', email, phone: '+56912345678', expected_price_clp: 30000, terms: terms.map(term => term.id) });
   const booking = await fetch(`${base}/bookings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   assert.equal(booking.status, 201, await booking.text());
   const duplicate = await fetch(`${base}/bookings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
