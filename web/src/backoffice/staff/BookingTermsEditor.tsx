@@ -1,3 +1,5 @@
+import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
+import { apiFetch } from '../../shared/requestCache';
 import { useEffect, useState } from 'react';
 import { apiUrl } from '../../shared/api';
 import { staffFetch } from './staffWorkspace';
@@ -25,7 +27,7 @@ export function BookingTermsEditor({ centerId, centerName, professionalName, ser
     setLoading(true); setMessage('');
     try {
       const existing = terms.some(t => (t.service_id ?? 'center') === scope);
-      const response = await fetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/terms/${encodeURIComponent(scope)}`, {
+      const response = await apiFetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/terms/${encodeURIComponent(scope)}`, {
         method: value === null ? 'DELETE' : existing ? 'PUT' : 'POST',
         headers: { Authorization: `Bearer ${token}`, ...(value === null ? {} : { 'Content-Type': 'application/json' }) },
         ...(value === null ? {} : { body: JSON.stringify({ body: value }) }),
@@ -36,7 +38,8 @@ export function BookingTermsEditor({ centerId, centerName, professionalName, ser
 
   }
   return <section className="staff-section staff-page-section staff-terms"><div className="section-heading"><div><p className="eyebrow">CONFIGURACIÓN DE RESERVAS</p><h2>Términos y condiciones</h2><p>Define los términos que tus pacientes deben aceptar al reservar.</p></div></div>
-    <div className="staff-terms-card"><p className="staff-terms-context"><strong>Centro:</strong> {centerName} <span aria-hidden="true">·</span> <strong>Profesional:</strong> {scope === 'center' ? 'Todos' : professionalName}</p>
+    {loading && !loaded && <LoadingSkeleton label="Cargando términos…" rows={2} />}
+    <div className="staff-terms-card" hidden={loading && !loaded}><p className="staff-terms-context"><strong>Centro:</strong> {centerName} <span aria-hidden="true">·</span> <strong>Profesional:</strong> {scope === 'center' ? 'Todos' : professionalName}</p>
     <label htmlFor="terms-scope">Servicio</label><select id="terms-scope" value={scope} onChange={e => setScope(e.target.value)}>{administrator && <option value="center">Términos del centro</option>}{services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
     <label htmlFor="terms-body">Texto completo</label><textarea id="terms-body" rows={10} maxLength={30000} value={body} onChange={e => setBody(e.target.value)} />
     <p className="staff-terms-help">Revisa la base de licitud, privacidad y las cláusulas de edad, cancelación e inasistencia antes de publicar. El consentimiento clínico es independiente.</p>

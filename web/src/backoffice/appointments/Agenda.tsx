@@ -1,3 +1,5 @@
+import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
+import { apiFetch } from '../../shared/requestCache';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Modal } from 'react-bootstrap';
 import { NewAppointment } from './NewAppointment';
@@ -39,7 +41,7 @@ export function Agenda({ role, token, centerId, apiUrl, scope = 'personal' }: { 
     const controller = new AbortController();
     setLoading(true); setError(''); setAppointments([]); setHasMore(false);
     const query = new URLSearchParams({ scope, period: past ? 'past' : 'upcoming', page: String(page) });
-    fetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments?${query}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
+    apiFetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments?${query}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error(); return response.json(); })
       .then((result: { appointments: Appointment[]; has_more: boolean }) => {
         if (controller.signal.aborted) return;
@@ -55,7 +57,7 @@ export function Agenda({ role, token, centerId, apiUrl, scope = 'personal' }: { 
   async function request(method: string, body?: unknown) {
     setBusy(true); setMessage('');
     try {
-      const response = await fetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments/${selected!.id}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      const response = await apiFetch(`${apiUrl}/staff/centers/${encodeURIComponent(centerId)}/appointments/${selected!.id}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
       if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error || 'No se pudo guardar la cita.'); }
       close(); refresh();
     } catch (err) { setMessage(err instanceof Error ? err.message : 'No se pudo guardar la cita.'); }
@@ -71,7 +73,7 @@ export function Agenda({ role, token, centerId, apiUrl, scope = 'personal' }: { 
   }
   return <section className="staff-section" id="agendamientos"><div className="section-heading"><div><p className="eyebrow">{scope === 'center' ? 'AGENDA DEL CENTRO' : 'TU AGENDA'}</p><h2>{scope === 'center' ? 'Agendamientos del centro' : 'Agendamientos'}</h2><p>{scope === 'center' ? 'Revisa los agendamientos de tu centro.' : 'Revisa los agendamientos asignados a ti.'}</p></div><div className="agenda-actions"><span className="count">{visible.length} en esta página</span>{role !== 'limited' && <Button className="button-primary" onClick={() => setCreating(true)}>+ Agendar cita</Button>}</div></div>
     <div className="agenda-filters" aria-label="Filtrar citas"><button type="button" aria-pressed={!past} onClick={() => { setPage(1); setPast(false); }}>Próximas</button><button type="button" aria-pressed={past} onClick={() => { setPage(1); setPast(true); }}>Pasadas</button></div>
-    {loading ? <p role="status">Cargando agendamientos…</p> : error ? <p role="alert">{error} <button onClick={refresh}>Reintentar</button></p> : visible.length ? <ul className="agenda-list">{visible.map(a => <li key={a.id}><button type="button" onClick={() => { setSelected(a); setMessage(''); }}><strong>{format(a.starts_at)}</strong> · {a.service_name} · {a.patient_name}{a.professional_name && <> · {a.professional_name}</>}</button></li>)}</ul> : <p>{past ? 'No hay citas pasadas.' : 'No hay citas próximas.'}</p>}
+    {loading ? <LoadingSkeleton label="Cargando agendamientos…" /> : error ? <p role="alert">{error} <button onClick={refresh}>Reintentar</button></p> : visible.length ? <ul className="agenda-list">{visible.map(a => <li key={a.id}><button type="button" onClick={() => { setSelected(a); setMessage(''); }}><strong>{format(a.starts_at)}</strong> · {a.service_name} · {a.patient_name}{a.professional_name && <> · {a.professional_name}</>}</button></li>)}</ul> : <p>{past ? 'No hay citas pasadas.' : 'No hay citas próximas.'}</p>}
     {!loading && !error && (page > 1 || hasMore) && <nav className="agenda-pagination" aria-label="Páginas de agendamientos"><Button variant="outline-secondary" disabled={page === 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span>Página {page}</span><Button variant="outline-secondary" disabled={!hasMore} onClick={() => setPage(value => value + 1)}>Siguiente</Button></nav>}
     <NewAppointment scope={scope} show={creating} onClose={() => setCreating(false)} onCreated={refresh} centerId={centerId} token={token} apiUrl={apiUrl} />
     <Modal show={!!selected} onHide={close} enforceFocus={!confirmDelete} centered><Modal.Header closeButton><Modal.Title>Detalle de la cita</Modal.Title></Modal.Header>{selected && <><Modal.Body>

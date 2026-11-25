@@ -1,0 +1,49 @@
+.brand-loader {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: #f6f8f7;
+  color: #23483c;
+}
+
+.brand-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  text-align: center;
+}
+
+.brand-loader .brand {
+  font-size: 30px;
+  color: #23483c;
+}
+
+.brand-loader .brand-mark {
+  font-size: 42px;
+}
+
+.brand-loader-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #dcebe4;
+  border-top-color: #24947f;
+  border-radius: 50%;
+  animation: brand-loader-spin .85s linear infinite;
+}
+
+.brand-loader p {
+  margin: 0;
+  font-size: 14px;
+  color: #668079;
+}
+
+@keyframes brand-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader-spinner { animation: none; }
+}

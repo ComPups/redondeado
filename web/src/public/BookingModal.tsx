@@ -1,3 +1,5 @@
+import { LoadingSkeleton } from '../shared/components/LoadingSkeleton';
+import { apiFetch } from '../shared/requestCache';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Modal from 'react-bootstrap/Modal';
 import { BookingCalendar, dateFormat, timeFormat, type Slot } from './BookingCalendar';
@@ -45,7 +47,7 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
     const controller = new AbortController();
     setTerms(null); setTermsError(false); setAccepted(false);
     const query = new URLSearchParams({ service: service.id, professional: professional.id });
-    fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/terms?${query}`, { signal: controller.signal })
+    apiFetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/terms?${query}`, { signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error('Could not load terms'); return response.json(); })
       .then((data: Terms[]) => { if (!controller.signal.aborted) setTerms(data); })
       .catch(() => { if (!controller.signal.aborted) setTermsError(true); });
@@ -58,7 +60,7 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
     const loadSlots = async () => {
       try {
         const query = new URLSearchParams({ service: service.id, professional: professional.id });
-        const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/availability?${query}`, { signal: controller.signal });
+        const response = await apiFetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/availability?${query}`, { signal: controller.signal });
         if (!response.ok) throw new Error('Could not load availability');
         const slots: Slot[] = await response.json();
         if (!controller.signal.aborted) setAvailability({ status: 'ready', slots });
@@ -85,7 +87,7 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/bookings`, {
+      const response = await apiFetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}/bookings`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ service: service.id, professional: professional.id, start: slot,
           name: form.get('name'), email: form.get('email'), phone: `${phoneCountryCode}${form.get('phone')}`, expected_price_clp: service.price_clp, terms: terms.map(term => term.id) }),
@@ -114,7 +116,7 @@ function AppointmentForm({ slug, service, professional, contact, onContactChange
 
   return (
     <form onSubmit={event => void book(event)}>
-      {availability.status === 'loading' && <p className="booking-feedback" role="status">Cargando horarios…</p>}
+      {availability.status === 'loading' && <LoadingSkeleton label="Cargando horarios…" variant="calendar" />}
       {availability.status === 'unavailable' && (
         <div className="booking-feedback">
           <p role="alert">No pudimos cargar los horarios.</p>
@@ -194,7 +196,7 @@ export function BookingModal({ center, slug, choice, onClose }: {
   const service = offerings.find(item => item.id === (choice.kind === 'service' ? choice.service.id : selection) && (item.professional_id ? item.professional_id === professional?.id : professional?.service_ids?.includes(item.id)));
   async function refreshPrice() {
     try {
-      const response = await fetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}`);
+      const response = await apiFetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}`, { cache: 'no-store' });
       if (!response.ok) return false;
       const profile: CenterProfile = await response.json();
       if (!profile.services.some(item => item.id === service?.id && (item.professional_id ? item.professional_id === professional?.id : professional?.service_ids?.includes(item.id)))) return false;

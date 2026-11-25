@@ -1,3 +1,4 @@
+import { CenterPageSkeleton } from '../shared/components/LoadingSkeleton';
 import { useState } from 'react';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
@@ -149,15 +150,11 @@ export function PublicCenterView() {
   return (
     <div className="public-site" lang="es-CL">
       <PublicHeader />
-      {result.status === 'ready' ? <CenterPage key={slug} center={result.profile} slug={slug} /> : (
+      {result.status === 'ready' ? <CenterPage key={slug} center={result.profile} slug={slug} /> : result.status === 'loading' ? <CenterPageSkeleton /> : (
         <main className="public-container public-message">
-          {result.status === 'loading' ? <p role="status">Cargando centro…</p> : (
-            <>
-              <h1>Centro no disponible</h1>
-              <p>{result.status === 'missing' ? 'No encontramos este centro.' : 'No pudimos cargar el centro.'}</p>
-              <Link className="public-button public-button-outline" to="/">Volver al inicio</Link>
-            </>
-          )}
+          <h1>Centro no disponible</h1>
+          <p>{result.status === 'missing' ? 'No encontramos este centro.' : 'No pudimos cargar el centro.'}</p>
+          <Link className="public-button public-button-outline" to="/">Volver al inicio</Link>
         </main>
       )}
     </div>

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --strictPort",
+    "dev:prod": "VITE_API_URL=/api vite --mode prod-api --port 5173 --strictPort",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run"
   },

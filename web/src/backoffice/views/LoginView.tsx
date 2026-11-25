@@ -1,3 +1,4 @@
+import { BrandLoader } from '../../shared/components/BrandLoader';
 import { useState, type FormEvent } from 'react';
 import { Brand } from '../../shared/components/Brand';
 import { TextField } from '../../shared/components/TextField';
@@ -18,6 +19,8 @@ export function LoginView({ onSignIn }: Props) {
     catch { setError('No pudimos iniciar sesión. Inténtalo nuevamente.'); }
     finally { setSubmitting(false); }
   }
+
+  if (submitting) return <BrandLoader label="Ingresando a tu espacio…" />;
 
   return <main className="login-page">
     <header className="login-header"><Brand /><span className="login-header-label">ESPACIO PARA EQUIPOS</span></header>

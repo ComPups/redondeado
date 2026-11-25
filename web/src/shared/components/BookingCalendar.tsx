@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from './LoadingSkeleton';
 import { useState } from 'react';
 
 export type Slot = { starts_at: string };
@@ -36,7 +37,7 @@ export function BookingCalendar({ slots, selected, onSelect, busy }: { slots: Sl
         return <button type="button" key={key} className={activeDay === key ? 'calendar-day selected' : 'calendar-day'} disabled={!available} aria-label={`${label}${available ? ', con horas disponibles' : ', sin horas disponibles'}`} aria-pressed={activeDay === key} onClick={() => { setDay(key); onSelect(''); }}>{i + 1}</button>;
       })}
     </div>
-    {busy ? <p role="status">Cargando horarios…</p> : !monthHasSlots ? <p>No hay horarios disponibles este mes.</p> : !activeDay ? <p>Selecciona un día disponible. Horarios en hora de Santiago.</p> : <><p>Horarios disponibles · {dateFormat.format(new Date(byDay.get(activeDay)![0].starts_at))}</p><div className="calendar-times">{byDay.get(activeDay)!.map(item => <button type="button" key={item.starts_at} className={selected === item.starts_at ? 'calendar-time selected' : 'calendar-time'} aria-pressed={selected === item.starts_at} onClick={() => onSelect(item.starts_at)}>{timeFormat.format(new Date(item.starts_at))}</button>)}</div></>}
+    {busy ? <LoadingSkeleton label="Cargando horarios…" variant="calendar" /> : !monthHasSlots ? <p>No hay horarios disponibles este mes.</p> : !activeDay ? <p>Selecciona un día disponible. Horarios en hora de Santiago.</p> : <><p>Horarios disponibles · {dateFormat.format(new Date(byDay.get(activeDay)![0].starts_at))}</p><div className="calendar-times">{byDay.get(activeDay)!.map(item => <button type="button" key={item.starts_at} className={selected === item.starts_at ? 'calendar-time selected' : 'calendar-time'} aria-pressed={selected === item.starts_at} onClick={() => onSelect(item.starts_at)}>{timeFormat.format(new Date(item.starts_at))}</button>)}</div></>}
   </fieldset>;
 }
 
