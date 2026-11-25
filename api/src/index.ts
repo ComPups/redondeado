@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express from 'express';
+import { readFileSync } from 'node:fs';
 import { createDatabase } from './db.js';
 import { authenticateStaff } from './middleware/auth.js';
 import { platformRoutes } from './routes/platform.js';
@@ -18,7 +19,8 @@ for (const option of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) {
   if (parsedDatabaseUrl.searchParams.has(option)) throw new Error(`Configure TLS outside DATABASE_URL: ${option} overrides driver TLS settings`);
 }
 if (process.env.DB_SSL_MODE && !['disable', 'verify'].includes(process.env.DB_SSL_MODE)) throw new Error('DB_SSL_MODE must be verify or disable');
-const db = createDatabase({ connectionString: databaseUrl, max: Number(process.env.DB_POOL_MAX ?? 5), connectionTimeoutMillis: Number(process.env.DB_ACQUIRE_TIMEOUT_MS ?? 5000), ssl: process.env.DB_SSL_MODE === 'disable' ? false : { rejectUnauthorized: true } }, Number(process.env.DB_STATEMENT_TIMEOUT_MS ?? 15000));
+const ca = process.env.DB_CA_CERT_PATH ? readFileSync(process.env.DB_CA_CERT_PATH, 'utf8') : undefined;
+const db = createDatabase({ connectionString: databaseUrl, max: Number(process.env.DB_POOL_MAX ?? 5), connectionTimeoutMillis: Number(process.env.DB_ACQUIRE_TIMEOUT_MS ?? 5000), ssl: process.env.DB_SSL_MODE === 'disable' ? false : { rejectUnauthorized: true, ...(ca ? { ca } : {}) } }, Number(process.env.DB_STATEMENT_TIMEOUT_MS ?? 15000));
 
 app.use(cors({ origin: webOrigin }));
 app.use(express.json({ limit: '128kb' }));

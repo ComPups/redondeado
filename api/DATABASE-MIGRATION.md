@@ -29,8 +29,9 @@ custom role as username; shared-pooler URLs use `redondeado_api.<project-ref>`.
 Copy the hostname and port from the project's Connect dialog; select a connection
 mode appropriate for the deployment. Use separate privileged credentials for
 migrations, never the runtime URL. The default TLS mode verifies the server
-certificate and hostname with the Node trust store; configure an appropriate CA
-through Node's trust configuration where needed. `DB_SSL_MODE=disable` is for
+certificate and hostname with the Node trust store; set `DB_CA_CERT_PATH` to the
+Supabase CA certificate when the certificate is not in the trust store.
+`DB_SSL_MODE=disable` is for
 local development only. TLS parameters in the URL are rejected to prevent them
 overriding verification.
 
@@ -100,8 +101,12 @@ roles, denied reads/writes/bookings, successful staff and public bookings,
 booking acceptance records and duplicate booking, invalid/forged/expired
 tokens, and table/RPC/GraphQL denial. HTTP fixture tests require isolated local
 admin credentials; see their environment checks. Frontend build and 21 tests
-also passed. No hosted setting or verification has been changed or performed.
+also passed. The development project has the migrations applied and a verified
+TLS connection using the restricted runtime login. Its Data API remains enabled:
+the hosted security advisor flags authenticated SECURITY DEFINER functions
+exposed through it. Disable the hosted Data API only after the deployed API is
+verified, then repeat Auth, REST, table, RPC and GraphQL checks.
 
-After hosted deployment, record the separate hosted Data API, Auth, and REST
-evidence. Run the same authorization and contract checks for service CRUD when
-it is integrated later.
+After hosted deployment, record the separate hosted Data API denial, Auth, and
+REST evidence. Run the same authorization and contract checks for service CRUD
+when it is integrated later.
