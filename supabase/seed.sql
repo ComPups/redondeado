@@ -50,3 +50,13 @@ from (values
   ('80000000-0000-4000-8000-000000000002'::uuid, '20000000-0000-4000-8000-000000000002'::uuid, '70000000-0000-4000-8000-000000000002'::uuid, 'Consulta nutricional', 'Diego Morales', 'diego.morales@example.com', '+56955501002', 10, time '10:00', 45),
   ('80000000-0000-4000-8000-000000000003'::uuid, '20000000-0000-4000-8000-000000000003'::uuid, '70000000-0000-4000-8000-000000000003'::uuid, 'Sesión de kinesiología', 'Francisca Herrera', 'francisca.herrera@example.com', '+56955501003', 14, time '15:00', 45)
 ) as demo(id, professional_user_id, service_id, service_name, patient_name, patient_email, patient_phone, day_offset, start_time, duration);
+
+-- Fictional demo text for testing only; do not publish as production terms.
+insert into public.booking_terms_versions (id, center_id, professional_user_id, service_id, body) values
+  ('90000000-0000-4000-8000-000000000010', '10000000-0000-4000-8000-000000000001', null, null,
+   'Términos de demostración del centro: esta reserva es ficticia y se utiliza únicamente para probar el sistema.'),
+  ('90000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001',
+   'Términos de demostración de Camila Rojas para consulta de psicología: el horario y las condiciones son ficticios.');
+insert into public.booking_terms_current (center_id, professional_user_id, service_id, version_id) values
+  ('10000000-0000-4000-8000-000000000001', null, null, '90000000-0000-4000-8000-000000000010'),
+  ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000011');

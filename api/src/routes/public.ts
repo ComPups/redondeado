@@ -22,10 +22,19 @@ export function publicRoutes(url: string, secret: string) {
     }
     res.json(slots);
   });
+  router.get('/centers/:slug/terms', async (req, res) => {
+    const { service, professional } = req.query;
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (typeof service !== 'string' || !uuid.test(service) || typeof professional !== 'string' || !uuid.test(professional)) { res.status(400).json({ error: 'Invalid selection' }); return; }
+    const { data, error } = await db.rpc('public_booking_terms', { p_slug: req.params.slug, p_service: service, p_professional: professional });
+    if (error) { res.status(500).json({ error: 'Could not load terms' }); return; }
+    res.json(data);
+  });
   router.post('/centers/:slug/bookings', async (req, res) => {
-    const { service, professional, start, name, email, phone } = req.body ?? {};
-    if (![service, professional, start, name, email, phone].every(value => typeof value === 'string')) { res.status(400).json({ error: 'Invalid booking' }); return; }
-    const { error } = await db.rpc('book_public_appointment', { p_slug: req.params.slug, p_service: service, p_professional: professional, p_start: start, p_name: name, p_email: email, p_phone: phone });
+    const { service, professional, start, name, email, phone, terms = [] } = req.body ?? {};
+    if (![service, professional, start, name, email, phone].every(value => typeof value === 'string') || !Array.isArray(terms) || !terms.every(id => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) { res.status(400).json({ error: 'Invalid booking' }); return; }
+    const { error } = await db.rpc('book_public_appointment', { p_slug: req.params.slug, p_service: service, p_professional: professional, p_start: start, p_name: name, p_email: email, p_phone: phone, p_terms: terms });
+    if (error?.code === 'PT409') { res.status(409).json({ error: 'Terms changed or not accepted', code: 'TERMS_CHANGED' }); return; }
     if (error) { res.status(error.code === '23P01' || error.code === 'P0001' ? 409 : 400).json({ error: 'Could not book appointment' }); return; }
     res.status(201).json({ success: true });
   });
