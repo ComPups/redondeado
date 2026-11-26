@@ -1,46 +1,149 @@
-import { Router } from 'express';
-import type { createDatabase } from '../db.js';
+import { Router } from "express";
+import type { createDatabase } from "../db.js";
 
 type Database = ReturnType<typeof createDatabase>;
-const publicIdentity = { kind: 'public' } as const;
+const publicIdentity = { kind: "public" } as const;
 
 export function publicRoutes(db: Database) {
   const router = Router();
-  router.get('/centers/:slug', async (req, res) => {
+  router.get("/centers/:slug", async (req, res) => {
     try {
-      const data = await db.transaction(publicIdentity, async client => (await client.query('select public.public_center_profile($1) as profile', [req.params.slug])).rows[0].profile);
-      if (!data) { res.status(404).json({ error: 'Center not found' }); return; }
+      const data = await db.transaction(
+        publicIdentity,
+        async (client) =>
+          (
+            await client.query(
+              "select public.public_center_profile($1) as profile",
+              [req.params.slug],
+            )
+          ).rows[0].profile,
+      );
+      if (!data) {
+        res.status(404).json({ error: "Center not found" });
+        return;
+      }
       res.json(data);
-    } catch { res.status(500).json({ error: 'Could not load center' }); }
+    } catch {
+      res.status(500).json({ error: "Could not load center" });
+    }
   });
-  router.get('/centers/:slug/availability', async (req, res) => {
+  router.get("/centers/:slug/availability", async (req, res) => {
     const { service, professional } = req.query;
-    if (typeof service !== 'string' || typeof professional !== 'string') { res.status(400).json({ error: 'Invalid selection' }); return; }
+    if (typeof service !== "string" || typeof professional !== "string") {
+      res.status(400).json({ error: "Invalid selection" });
+      return;
+    }
     try {
-      const slots = await db.transaction(publicIdentity, async client => (await client.query('select * from public.public_availability($1, $2, $3)', [req.params.slug, service, professional])).rows);
+      const slots = await db.transaction(
+        publicIdentity,
+        async (client) =>
+          (
+            await client.query(
+              "select * from public.public_availability($1, $2, $3)",
+              [req.params.slug, service, professional],
+            )
+          ).rows,
+      );
       res.json(slots);
-    } catch { res.status(400).json({ error: 'Could not load availability' }); }
+    } catch {
+      res.status(400).json({ error: "Could not load availability" });
+    }
   });
-  router.get('/centers/:slug/terms', async (req, res) => {
+  router.get("/centers/:slug/terms", async (req, res) => {
     const { service, professional } = req.query;
-    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (typeof service !== 'string' || !uuid.test(service) || typeof professional !== 'string' || !uuid.test(professional)) { res.status(400).json({ error: 'Invalid selection' }); return; }
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (
+      typeof service !== "string" ||
+      !uuid.test(service) ||
+      typeof professional !== "string" ||
+      !uuid.test(professional)
+    ) {
+      res.status(400).json({ error: "Invalid selection" });
+      return;
+    }
     try {
-      const data = await db.transaction(publicIdentity, async client => (await client.query('select * from public.public_booking_terms($1, $2, $3) limit 1000', [req.params.slug, service, professional])).rows);
+      const data = await db.transaction(
+        publicIdentity,
+        async (client) =>
+          (
+            await client.query(
+              "select * from public.public_booking_terms($1, $2, $3) limit 1000",
+              [req.params.slug, service, professional],
+            )
+          ).rows,
+      );
       res.json(data);
-    } catch { res.status(500).json({ error: 'Could not load terms' }); }
+    } catch {
+      res.status(500).json({ error: "Could not load terms" });
+    }
   });
-  router.post('/centers/:slug/bookings', async (req, res) => {
-    const { service, professional, start, name, email, phone, expected_price_clp, terms = [] } = req.body ?? {};
-    if (![service, professional, start, name, email, phone].every(value => typeof value === 'string') || !Number.isSafeInteger(expected_price_clp) || expected_price_clp < 0 || expected_price_clp > 2147483647 || !Array.isArray(terms) || !terms.every(id => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) { res.status(400).json({ error: 'Invalid booking' }); return; }
+  router.post("/centers/:slug/bookings", async (req, res) => {
+    const {
+      service,
+      professional,
+      start,
+      name,
+      email,
+      phone,
+      expected_price_clp,
+      terms = [],
+    } = req.body ?? {};
+    if (
+      ![service, professional, start, name, email, phone].every(
+        (value) => typeof value === "string",
+      ) ||
+      !Number.isSafeInteger(expected_price_clp) ||
+      expected_price_clp < 0 ||
+      expected_price_clp > 2147483647 ||
+      !Array.isArray(terms) ||
+      !terms.every(
+        (id) =>
+          typeof id === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            id,
+          ),
+      )
+    ) {
+      res.status(400).json({ error: "Invalid booking" });
+      return;
+    }
     try {
-      await db.transaction(publicIdentity, client => client.query('select public.book_public_appointment_with_price($1, $2, $3, $4, $5, $6, $7, $8::uuid[], $9)', [req.params.slug, service, professional, start, name, email, phone, terms, expected_price_clp]));
+      await db.transaction(publicIdentity, (client) =>
+        client.query(
+          "select public.book_public_appointment_with_price($1, $2, $3, $4, $5, $6, $7, $8::uuid[], $9)",
+          [
+            req.params.slug,
+            service,
+            professional,
+            start,
+            name,
+            email,
+            phone,
+            terms,
+            expected_price_clp,
+          ],
+        ),
+      );
       res.status(201).json({ success: true });
     } catch (error) {
       const code = (error as { code?: string }).code;
-      if (code === 'P0002') { res.status(409).json({ error: 'Price changed', code: 'PRICE_CHANGED' }); return; }
-      if (code === 'PT409') { res.status(409).json({ error: 'Terms changed or not accepted', code: 'TERMS_CHANGED' }); return; }
-      res.status(code === '23P01' || code === 'P0001' ? 409 : 400).json({ error: 'Could not book appointment' });
+      if (code === "P0002") {
+        res.status(409).json({ error: "Price changed", code: "PRICE_CHANGED" });
+        return;
+      }
+      if (code === "PT409") {
+        res
+          .status(409)
+          .json({
+            error: "Terms changed or not accepted",
+            code: "TERMS_CHANGED",
+          });
+        return;
+      }
+      res
+        .status(code === "23P01" || code === "P0001" ? 409 : 400)
+        .json({ error: "Could not book appointment" });
     }
   });
   return router;

@@ -2,6 +2,40 @@
 
 A booking site and staff backoffice for the Encuadrado application process.
 
+## Requisitos según el handoff de Encuadrado
+
+### 1. Plataforma para el profesional
+
+#### Requisitos mínimos
+
+- **Ingresar con usuario y contraseña — Cumplido.** La aplicación incluye login, logout, cuentas demo para Administrador, Miembro y Limitado, y redirección al login para rutas protegidas.
+- **Manejo de permisos — Cumplido.** Cada cuenta ve su rol y obtiene un alcance distinto: el Administrador gestiona el centro, el Miembro gestiona sus propios agendamientos y el usuario Limitado solo visualiza.
+- **Restricción de accesos — Cumplido.** La interfaz oculta acciones no permitidas y la API/RLS vuelve a validar autenticación, pertenencia al centro y permisos, incluyendo respuestas `401` y `403`.
+- **Ver los agendamientos — Cumplido.** La agenda muestra paciente, datos de contacto, fecha, hora, servicio y profesional cuando corresponde, con filtros de próximas/pasadas y paginación.
+- **Configuraciones del centro — Cumplido.** El Administrador puede editar nombre, descripción de hasta 400 caracteres, horario, servicios, precios y duración; los cambios se reflejan en el perfil público y la disponibilidad.
+
+#### Requisitos deseables
+
+- **Reagendamiento y cancelación — Cumplido.** El profesional puede modificar los datos y horario de una cita o eliminarla; el backend valida permisos, horario y conflictos.
+- **Agregar un agendamiento — Cumplido.** El personal con permisos puede crear una cita eligiendo fecha, servicio, profesional y datos del paciente desde el backoffice.
+- **Agenda en formato calendario — Parcial.** La selección de disponibilidad utiliza un calendario; la agenda del profesional todavía se presenta como una lista paginada.
+
+### 2. Vista del paciente
+
+#### Requisitos mínimos
+
+- **Perfil público del centro — Cumplido.** El perfil es accesible sin autenticación desde una URL basada en el nombre del centro y muestra descripción, profesionales y servicios con precio en CLP y duración.
+- **Proceso de agendamiento — Cumplido.** El paciente puede comenzar escogiendo servicio o profesional, consultar horas disponibles según duración, horario y conflictos, y confirmar con nombre, correo y teléfono.
+
+#### Requisitos deseables
+
+- **Términos y condiciones — Cumplido.** El paciente puede leer y aceptar los términos antes de reservar; el centro o profesional puede publicarlos y retirarlos desde el backoffice.
+
+### 3. Bonus
+
+- **Soporte para varios centros — Cumplido.** Una cuenta puede pertenecer a más de un centro, cambiar de contexto y conservar permisos independientes en cada uno.
+- **Base de datos hospedada — Implementado.** Supabase Auth y Postgres mantienen las reservas y cambios disponibles al reiniciar la API o conectarse desde otro checkout al mismo proyecto.
+
 ## Prerequisites
 
 - Node.js 22.13 or later and npm.
@@ -31,7 +65,6 @@ The first start downloads the service images and applies the migrations and loca
 
 The API uses Postgres directly with transaction-scoped roles and RLS; Supabase Auth still handles staff sign-in and token verification. Local PostgREST is disabled in `supabase/config.toml`. This does not change the hosted Data API setting. Hosted migrations and rollout are described in [database migration and rollout](api/DATABASE-MIGRATION.md).
 
-
 ## Run locally
 
 The migrations create a restricted Postgres login named `redondeado_api` without a password. Set a local-only password before starting the API. Connect as the local database administrator using the connection shown by `supabase status`, then run the interactive password command:
@@ -59,6 +92,7 @@ cp web/.env.example web/.env
 In `api/.env`, set `SUPABASE_PUBLISHABLE_KEY` to the local publishable (or anon) key shown by `supabase status`, and replace the password in `DATABASE_URL` with the one just set for `redondeado_api`. Percent-encode any URL-special characters in the password. Keep `DB_SSL_MODE=disable` for the local database. In `web/.env`, set `VITE_SUPABASE_PUBLISHABLE_KEY` to the same key. Keep the database URL and password server-side; never put them in a `VITE_` variable.
 
 Start the API and web app in separate terminals:
+
 ```sh
 
 npm --prefix api run dev
@@ -70,7 +104,6 @@ Open the landing page at http://localhost:5173/, the demo center at http://local
 To run the frontend against the production API, use `npm --prefix web run dev:prod` and open http://localhost:5173/centro-bienestar-arrayan. Vite proxies `/api` requests to production; no local API is needed. For staff sign-in, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the production project's URL and publishable key in `web/.env.local`. This command uses production data, and actions can change it. Use only a publishable (or legacy anon) key in frontend environment files, never a secret or service-role key.
 
 To connect to a hosted Supabase project, configure its Auth URL, publishable key, restricted runtime database URL, and verified TLS certificate in the local environment files. Use separate credentials for migrations; see [database migration and rollout](api/DATABASE-MIGRATION.md) for the connection settings and deployment order.
-
 
 The staff interface supports sign-in, center selection, a role-scoped appointment agenda with contact details, manual booking, editing, rescheduling and deletion. Administrators can book for center professionals; members can book for themselves, and limited users have read-only access. Manual bookings use the public booking availability and validation rules. Center administrators see their center's appointments; members and limited staff see their own. Platform administrators can create centers and edit center, service, appointment, profile and membership records across centers. The platform editor is an initial JSON-based interface; changes remain subject to database constraints. The public profile lets patients book in the current and next calendar months in America/Santiago, with start times every 30 minutes during center hours. Center administrators manage the shared service catalog and edit the center name, description (up to 400 characters), and daily opening and closing times from Mi centro → Configuraciones del centro. Saved settings appear on the public profile; existing appointments and the public address are preserved. Professionals choose which services to offer and set their own prices and durations; removing an offering does not affect colleagues. Bookings retain the agreed price, service name and duration. The `staff` slug is reserved for staff routes. Production hosting must rewrite frontend paths to `index.html` for direct navigation and refresh.
 
@@ -88,15 +121,14 @@ Public pages and staff lists/calendars use shared skeletons while data loads, wi
 
 A local `supabase db reset` applies the migrations and seeds the fictional Centro Bienestar Arrayán. **Reset deletes local database data.** The four fictional accounts share the local demo password `Demo-Arrayan-2026!`:
 
-| Staff member | Email | Center role |
-| --- | --- | --- |
-| Camila Rojas | camila.rojas@example.com | Administrator (also a professional) |
-| Matías Soto | matias.soto@example.com | Member |
-| Valentina Muñoz | valentina.munoz@example.com | Limited |
-| Platform administrator | plataforma@example.com | Platform administrator (all centers) |
+| Staff member           | Email                       | Center role                          |
+| ---------------------- | --------------------------- | ------------------------------------ |
+| Camila Rojas           | camila.rojas@example.com    | Administrator (also a professional)  |
+| Matías Soto            | matias.soto@example.com     | Member                               |
+| Valentina Muñoz        | valentina.munoz@example.com | Limited                              |
+| Platform administrator | plataforma@example.com      | Platform administrator (all centers) |
 
 These credentials are public and only for development; do not use this seed for a production project. The authenticated user's rows in `center_memberships` provide the center ID and role for server-side authorization. A user can belong to multiple centers, so the server must select a center from those rows and check its role for each request. Staff professional IDs and display names are public; profile Auth user IDs, account email, and membership administration are not public. Signed-in staff can read their own Auth user ID in their memberships. Public queries on `staff_profiles` must select `professional_id` and `display_name` explicitly. Memberships continue to use the Auth user ID for authorization. The API checks membership for the requested center on each protected request.
-
 
 The demo center is open daily from 09:00 to 18:00 in `America/Santiago`, with three services priced in CLP and three fictional appointments. Appointments fall in the current month and can be in the past near month-end. Existing bookings retain their service name and end time when a service changes; deactivate services to remove them from the catalog. The database prevents overlapping appointments for the same professional, including across centers.
 
