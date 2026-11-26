@@ -1,9 +1,9 @@
-import { apiFetch } from '../shared/requestCache';
-import { apiUrl } from '../shared/api';
-import { useEffect, useState } from 'react';
+import { apiFetch } from "../shared/requestCache";
+import { apiUrl } from "../shared/api";
+import { useEffect, useState } from "react";
 
-export const demoCenterSlug = 'centro-bienestar-arrayan';
-export const demoCenterName = 'Centro Bienestar Arrayán';
+export const demoCenterSlug = "centro-bienestar-arrayan";
+export const demoCenterName = "Centro Bienestar Arrayán";
 
 export type Service = {
   id: string;
@@ -32,16 +32,19 @@ export type CenterProfile = {
 };
 
 type ProfileResult =
-  | { status: 'loading' | 'unavailable' | 'missing' }
-  | { status: 'ready'; profile: CenterProfile };
+  | { status: "loading" | "unavailable" | "missing" }
+  | { status: "ready"; profile: CenterProfile };
 
-export const formatPrice = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
-  currency: 'CLP',
+export const formatPrice = new Intl.NumberFormat("es-CL", {
+  style: "currency",
+  currency: "CLP",
 }).format;
 
 export function useCenterProfile(slug: string): ProfileResult {
-  const [request, setRequest] = useState<{ slug: string; result: ProfileResult }>();
+  const [request, setRequest] = useState<{
+    slug: string;
+    result: ProfileResult;
+  }>();
 
   useEffect(() => {
     if (!slug) return;
@@ -50,12 +53,15 @@ export function useCenterProfile(slug: string): ProfileResult {
     const load = async () => {
       let result: ProfileResult;
       try {
-        const response = await apiFetch(`${apiUrl}/public/centers/${encodeURIComponent(slug)}`, { signal: controller.signal });
-        if (response.status === 404) result = { status: 'missing' };
-        else if (!response.ok) throw new Error('Could not load center');
-        else result = { status: 'ready', profile: await response.json() };
+        const response = await apiFetch(
+          `${apiUrl}/public/centers/${encodeURIComponent(slug)}`,
+          { signal: controller.signal },
+        );
+        if (response.status === 404) result = { status: "missing" };
+        else if (!response.ok) throw new Error("Could not load center");
+        else result = { status: "ready", profile: await response.json() };
       } catch {
-        result = { status: 'unavailable' };
+        result = { status: "unavailable" };
       }
       if (!controller.signal.aborted) setRequest({ slug, result });
     };
@@ -64,5 +70,5 @@ export function useCenterProfile(slug: string): ProfileResult {
     return () => controller.abort();
   }, [slug]);
 
-  return request?.slug === slug ? request.result : { status: 'loading' };
+  return request?.slug === slug ? request.result : { status: "loading" };
 }
