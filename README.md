@@ -34,6 +34,12 @@ A booking site and staff backoffice for the Encuadrado application process.
 - **Soporte para varios centros — Cumplido.** Una cuenta puede pertenecer a más de un centro, cambiar de contexto y conservar permisos independientes en cada uno.
 - **Base de datos hospedada — Implementado.** Supabase Auth y Postgres mantienen las reservas y cambios disponibles al reiniciar la API o conectarse desde otro checkout al mismo proyecto.
 
+### 4. Decisiones de producto destacadas
+
+- **Almacenamiento de multiples versiones de los TyC** Al almacenar un appointment guardamos una versión a la cual el usuario aceptó de los TyC, lo que nos permite tener un seguimiento por razones legales en caso de que haya una actualización de los TyC, o exista algun reclamo por alguna sesión pasada.
+- **Adición de un Platform Admin** Para no complejizar de sobremanera el agregar nuevos centros y usuarios (con un sistema de invite por ejemplo), opté por agregar un platform admin, que tiene acceso a todo lo que tienen acceso los center admin y además la capacidad de crear centros. También tiene la capacidad de visualizar como viene la data desde la bd al hacer fetch con la API.
+
+
 ## Prerequisites
 
 - Node.js 22.13 or later and npm.
