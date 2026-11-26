@@ -11,6 +11,13 @@ const publicIdentity = { kind: 'public' } as const;
 
 export function publicRoutes(db: Database) {
   const router = Router();
+  router.get('/centers', async (_req, res) => {
+    try {
+      const centers = await db.workflowTransaction(publicIdentity, async client =>
+        (await client.query('select slug, name, description, image_url from public.centers order by name, slug')).rows);
+      res.json(centers);
+    } catch { res.status(500).json({ error: 'Could not load centers' }); }
+  });
   router.get('/centers/:slug', async (req, res) => {
     try {
       const data = await db.workflowTransaction(publicIdentity, client => publicCenterProfile(client, req.params.slug));

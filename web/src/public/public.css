@@ -39,7 +39,7 @@
 
 .public-hero {
   display: grid;
-  grid-template-columns: 1.07fr 1fr;
+  grid-template-columns: 1fr;
   align-items: center;
   gap: clamp(2.5rem, 6vw, 6rem);
   padding-block: clamp(3rem, 7vw, 6.5rem);
@@ -211,7 +211,7 @@
 .booking-steps { padding-block: clamp(2.5rem, 7vw, 5.5rem); }
 .booking-steps ol {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin: 1.5rem 0 0;
   padding-left: 1.4rem;
@@ -588,3 +588,22 @@
   .booking-terms-dialog[open] { position: absolute; inset: 0; width: 100%; max-width: none; height: auto; max-height: none; margin: 0; padding: 0; overflow: visible; border: 0; box-shadow: none; }
   .booking-terms-dialog[open] .booking-terms-close, .booking-terms-dialog[open] .booking-terms-dialog-actions { display: none; }
 }
+
+.centers-section { padding-block: clamp(2.5rem, 6vw, 4.5rem); }
+.centers-section > p:not(.public-kicker) { color: var(--public-muted); }
+.centers-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; margin-top: 1.75rem; }
+.discovery-card { display: flex; flex-direction: column; overflow: hidden; background: #fff; border: 1px solid #dbe8dc; border-radius: 1.05rem; }
+.discovery-card img { width: 100%; height: 190px; object-fit: cover; }
+.discovery-card-content { display: flex; flex: 1; flex-direction: column; align-items: flex-start; padding: 1.4rem; }
+.discovery-card h3 { font-size: 1.3rem; font-weight: 800; }
+.discovery-card p { color: var(--public-muted); line-height: 1.55; margin-bottom: 1.5rem; }
+.discovery-card .public-button { margin-top: auto; gap: .65rem; }
+.centers-navigation { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem; color: var(--public-muted); }
+.centers-navigation button { padding: .6rem .9rem; border: 1px solid #a9c4b7; border-radius: .75rem; color: var(--public-green); background: white; font-weight: 700; }
+.centers-navigation button:disabled { opacity: .5; }
+.centers-navigation button:focus-visible { outline: 3px solid #207459; outline-offset: 3px; }
+@media (max-width: 800px) { .centers-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 580px) { .centers-grid { grid-template-columns: 1fr; } }
+
+@media (max-width: 800px) { .booking-steps ol { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 580px) { .booking-steps ol { grid-template-columns: 1fr; } }
